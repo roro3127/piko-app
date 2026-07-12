@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ぴこチャット</title>
+<style>
+:root{
+  --bg:#fdf6f8;
+  --panel:#ffffff;
+  --ink:#3a2e33;
+  --sub:#9a8a91;
+  --accent:#e8748f;
+  --accent-dark:#d05a77;
+  --me:#ffe3ec;
+  --piko:#ffffff;
+  --line:#f0dde4;
+  --shadow:0 2px 10px rgba(208,90,119,.10);
+  --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+  background:var(--bg);color:var(--ink);
+  display:flex;flex-direction:column;overflow:hidden;
+  height:100dvh;
+}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input,textarea,select{font-family:inherit;font-size:16px;color:var(--ink)}
+
+/* ---------- header ---------- */
+header{
+  flex:none;display:flex;align-items:center;gap:8px;
+  padding:10px 12px;background:var(--panel);
+  border-bottom:1px solid var(--line);box-shadow:var(--shadow);z-index:5;
+}
+header .title{flex:1;min-width:0}
+header .title h1{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .title .model{font-size:11px;color:var(--sub)}
+.iconbtn{
+  width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;background:var(--bg);flex:none;
+}
+.iconbtn:active{background:var(--me)}
+
+/* ---------- chat ---------- */
+#chatArea{flex:1;overflow-y:auto;padding:14px 12px 8px;-webkit-overflow-scrolling:touch}
+.msg{display:flex;margin-bottom:12px;max-width:100%}
+.msg .bubble{
+  max-width:82%;padding:10px 14px;border-radius:var(--radius);
+  font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
+  box-shadow:var(--shadow);position:relative;
+}
+.msg.user{justify-content:flex-end}
+.msg.user .bubble{background:var(--me);border-bottom-right-radius:4px}
+.msg.assistant .bubble{
+  background:var(--piko);box-shadow:var(--shadow);border-radius:12px;
+  max-width:100%;width:100%;padding:10px 14px;
+}
+.msg .name{font-size:11px;color:var(--sub);margin-bottom:3px}
+.msg.assistant .name{color:var(--accent);font-weight:700}
+.msg .del{
+  position:absolute;top:-8px;font-size:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:50%;width:22px;height:22px;line-height:20px;text-align:center;color:var(--sub);display:none;
+}
+.msg.user .del{left:-8px}
+.msg.assistant .del{right:8px;top:8px}
+.editMode .msg .del{display:block}
+.msg .time{font-size:10px;color:var(--sub);margin-top:4px;text-align:right}
+.msg.assistant .time{text-align:right}
+.dateDiv{
+  text-align:center;font-size:11px;color:var(--sub);margin:16px 0 12px;
+  display:flex;align-items:center;gap:10px;
+}
+.dateDiv::before,.dateDiv::after{content:'';flex:1;border-top:1px solid var(--line)}
+.typing{color:var(--sub);font-size:13px;padding:0 6px 8px;display:none}
+.typing.on{display:block}
+#emptyHint{color:var(--sub);text-align:center;font-size:13px;margin-top:40px;line-height:2}
+
+/* ---------- input ---------- */
+#inputBar{
+  flex:none;display:flex;align-items:flex-end;gap:8px;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  background:var(--panel);border-top:1px solid var(--line);
+}
+#inputBar textarea{
+  flex:1;resize:none;border:1.5px solid var(--line);border-radius:14px;
+  padding:11px 12px;max-height:130px;min-height:46px;background:var(--bg);outline:none;
+}
+#inputBar textarea:focus{border-color:var(--accent)}
+#sendBtn{
+  flex:none;width:46px;height:46px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:19px;
+}
+#sendBtn:disabled{background:#e9cdd6}
+
+/* ---------- overlay panels ---------- */
+.panel{
+  position:fixed;inset:0;background:var(--bg);z-index:20;display:none;
+  flex-direction:column;
+}
+.panel.open{display:flex}
+.panel .phead{
+  flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:var(--panel);border-bottom:1px solid var(--line);
+}
+.panel .phead h2{flex:1;font-size:16px}
+.panel .pbody{flex:1;overflow-y:auto;padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+
+/* settings */
+.field{margin-bottom:18px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.field .hint{font-size:11px;color:var(--sub);margin-top:5px;line-height:1.6}
+.field input,.field select,.field textarea{
+  width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--panel);outline:none;
+}
+.field textarea{min-height:220px;line-height:1.7;font-size:14px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.btn{
+  display:block;width:100%;padding:13px;border-radius:14px;font-size:15px;font-weight:700;
+  background:var(--accent);color:#fff;margin-bottom:10px;
+}
+.btn:active{background:var(--accent-dark)}
+.btn.ghost{background:var(--panel);color:var(--accent);border:1.5px solid var(--accent)}
+.btn.gray{background:var(--panel);color:var(--sub);border:1.5px solid var(--line)}
+
+/* threads */
+.thread{
+  background:var(--panel);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;
+  box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;
+}
+.thread .tinfo{flex:1;min-width:0}
+.thread .tname{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thread .tmeta{font-size:11px;color:var(--sub);margin-top:2px}
+.thread.active{border:1.5px solid var(--accent)}
+.thread .tdel{color:var(--sub);font-size:17px;padding:8px}
+#searchBox{
+  width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;
+  background:var(--panel);margin-bottom:12px;outline:none;
+}
+#searchBox:focus{border-color:var(--accent)}
+
+/* ---------- dialog / toast ---------- */
+#dlgWrap{
+  position:fixed;inset:0;background:rgba(58,46,51,.45);z-index:50;display:none;
+  align-items:center;justify-content:center;padding:24px;
+}
+#dlgWrap.open{display:flex}
+#dlg{
+  background:var(--panel);border-radius:18px;padding:22px 18px;width:100%;max-width:320px;
+  box-shadow:0 8px 30px rgba(0,0,0,.2);
+}
+#dlg .dmsg{font-size:14px;line-height:1.8;margin-bottom:18px;white-space:pre-wrap}
+#dlg .dbtns{display:flex;gap:10px}
+#dlg .dbtns button{
+  flex:1;padding:12px;border-radius:12px;font-size:14px;font-weight:700;
+}
+#dlgOk{background:var(--accent);color:#fff}
+#dlgCancel{background:var(--bg);color:var(--sub)}
+#toast{
+  position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;font-size:13px;padding:10px 18px;border-radius:20px;
+  opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:86%;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- cost popup ---------- */
+#costWrap{
+  position:fixed;inset:0;background:rgba(58,46,51,.3);z-index:40;display:none;
+  align-items:flex-start;justify-content:flex-end;padding:60px 12px 0;
+}
+#costWrap.open{display:flex}
+#costPop{
+  background:var(--panel);border-radius:16px;padding:16px;width:100%;max-width:300px;
+  box-shadow:0 8px 30px rgba(0,0,0,.18);font-size:13px;
+}
+#costPop h3{font-size:13px;color:var(--accent);margin-bottom:8px}
+#costPop .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line)}
+#costPop .row:last-child{border-bottom:none}
+#costPop .row b{font-variant-numeric:tabular-nums}
+#costPop .sec{margin-top:12px}
+#costPop .note{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.6}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="iconbtn" id="btnThreads" title="会話リスト">💬</button>
+  <div class="title">
+    <h1 id="threadTitle">ぴこチャット</h1>
+    <div class="model" id="modelLabel"></div>
+  </div>
+  <button class="iconbtn" id="btnCost" title="使用量">💰</button>
+  <button class="iconbtn" id="btnEdit" title="メッセージ編集">✂️</button>
+  <button class="iconbtn" id="btnSettings" title="設定">⚙️</button>
+</header>
+
+<div id="chatArea">
+  <div id="emptyHint">まだメッセージがないよ。<br>下の入力欄から話しかけてね💕</div>
+</div>
+<div class="typing" id="typing">ぴこが入力中…💭</div>
+
+<div id="inputBar">
+  <textarea id="input" rows="1" placeholder="メッセージを入力…"></textarea>
+  <button id="sendBtn">➤</button>
+</div>
+
+<!-- 会話リスト -->
+<div class="panel" id="threadsPanel">
+  <div class="phead">
+    <button class="iconbtn" data-close="threadsPanel">←</button>
+    <h2>会話リスト</h2>
+    <button class="iconbtn" id="btnNewThread" title="新しい会話">＋</button>
+  </div>
+  <div class="pbody">
+    <input id="searchBox" type="text" placeholder="🔍 会話を検索（タイトル・本文）">
+    <div id="threadList"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="panel" id="settingsPanel">
+  <div class="phead">
+    <button class="iconbtn" data-close="settingsPanel">←</button>
+    <h2>設定</h2>
+  </div>
+  <div class="pbody">
+    <div class="field">
+      <label>APIキー</label>
+      <input type="password" id="setApiKey" placeholder="sk-ant-...">
+      <div class="hint">この端末のlocalStorageにのみ保存されます。</div>
+    </div>
+    <div class="field">
+      <label>モデル</label>
+      <select id="setModel">
+        <optgroup label="最新">
+          <option value="claude-opus-4-8">claude-opus-4-8</option>
+          <option value="claude-fable-5">claude-fable-5</option>
+          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+        </optgroup>
+        <optgroup label="旧モデル">
+          <option value="claude-opus-4-7">claude-opus-4-7</option>
+          <option value="claude-opus-4-6">claude-opus-4-6</option>
+          <option value="claude-opus-4-5">claude-opus-4-5</option>
+          <option value="claude-opus-4-1-20250805">claude-opus-4-1</option>
+          <option value="claude-opus-4-20250514">claude-opus-4</option>
+          <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5</option>
+          <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
+          <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet</option>
+          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku</option>
+        </optgroup>
+        <option value="__custom__">その他（モデルIDを直接入力）</option>
+      </select>
+      <input type="text" id="setModelCustom" placeholder="例: claude-opus-4-5" style="display:none;margin-top:8px">
+      <div class="hint">リストにないモデルは「その他」を選んでIDを直接入力できます。</div>
+    </div>
+    <div class="field">
+      <label>APIに送る直近の往復数</label>
+      <select id="setWindow">
+        <option value="5">5往復</option>
+        <option value="10" selected>10往復</option>
+        <option value="15">15往復</option>
+        <option value="20">20往復</option>
+        <option value="0">すべて送る（コスト注意）</option>
+      </select>
+      <div class="hint">履歴が長くなってもAPIコストを抑えるための設定。画面上の履歴は全部残ります。</div>
+    </div>
+    <div class="field">
+      <label>最大応答トークン数</label>
+      <select id="setMaxTokens">
+        <option value="1024">1024</option>
+        <option value="2048" selected>2048</option>
+        <option value="4096">4096</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>システムプロンプト（キャラ設定）</label>
+      <textarea id="setSystem" placeholder="ここにシステムプロンプト（キャラ設定）を貼り付けて保存してください。未設定の間はぴことしての応答ができません。"></textarea>
+      <div class="hint" id="systemMissingHint" style="display:none;color:#c0392b;font-weight:700">⚠️ システムプロンプトが未設定です。上の欄に貼り付けて「設定を保存」を押してください。</div>
+    </div>
+    <div class="field">
+      <label>ナレッジ（追加の記憶・設定）</label>
+      <textarea id="setKnowledge" style="min-height:120px" placeholder="ぴこに毎回伝えたいこと（二人の思い出、最近の出来事など）。空欄なら料金は変わりません。"></textarea>
+      <div class="hint" id="knowledgeMeter" style="font-weight:700"></div>
+      <button class="btn ghost" id="btnLoadKnowledge" style="margin-top:8px">📎 テキストファイルを読み込んで追加（.txt / .md）</button>
+      <input type="file" id="knowledgeFile" accept=".txt,.md,text/plain,text/markdown" style="display:none">
+      <div class="hint">ここに書いた内容は毎回一緒に送られます。ファイルを読み込むと中身がこの欄に追加されます（実体はどちらも同じテキスト送信です）。</div>
+    </div>
+    <button class="btn" id="btnSaveSettings">設定を保存</button>
+    <hr style="border:none;border-top:1px solid var(--line);margin:18px 0">
+    <div class="field">
+      <label>💰 使用量・残高の管理</label>
+      <div class="hint" id="usageSummary" style="margin-bottom:10px"></div>
+      <label style="font-weight:400;font-size:12px">クレジット残高（ドル）※追加購入したらここを書き換えてね</label>
+      <input type="number" id="setCredit" step="0.01" min="0" placeholder="例: 5">
+      <label style="font-weight:400;font-size:12px;margin-top:10px">為替レート（円/ドル）</label>
+      <input type="number" id="setFx" step="1" min="1" value="150">
+      <div class="hint">残高を入力すると、そこから使用分を引いた「残りの目安」が💰パネルに表示されます。金額はあくまで概算です。</div>
+      <button class="btn ghost" id="btnResetUsage" style="margin-top:10px">累計使用量をリセット</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:18px 0">
+    <button class="btn ghost" id="btnExport">会話をエクスポート（JSON）</button>
+    <button class="btn ghost" id="btnExportClipboard">エクスポートデータをクリップボードにコピー</button>
+    <button class="btn ghost" id="btnImport">会話をインポート（JSON）</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+    <button class="btn gray" id="btnWipe">全データを削除</button>
+  </div>
+</div>
+
+<!-- 使用量ポップアップ -->
+<div id="costWrap">
+  <div id="costPop">
+    <h3>💰 この会話</h3>
+    <div class="row"><span>入力トークン</span><b id="cThreadIn">0</b></div>
+    <div class="row"><span>出力トークン</span><b id="cThreadOut">0</b></div>
+    <div class="row"><span>概算金額</span><b id="cThreadCost">¥0</b></div>
+    <h3 class="sec">📊 全体の累計</h3>
+    <div class="row"><span>概算金額</span><b id="cTotalCost">¥0 ($0)</b></div>
+    <div class="row"><span>残高の目安</span><b id="cRemain">未設定</b></div>
+    <div class="note">概算です。正確な金額はAnthropicの管理画面で確認してね。残高は設定画面で記入できます。</div>
+  </div>
+</div>
+
+<!-- 自前ダイアログ / トースト -->
+<div id="dlgWrap">
+  <div id="dlg">
+    <div class="dmsg" id="dlgMsg"></div>
+    <input type="text" id="dlgInput" style="display:none;width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:16px;outline:none" placeholder="">
+    <select id="dlgSelect" style="display:none;width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:16px;outline:none;background:var(--panel)"></select>
+    <div class="dbtns">
+      <button id="dlgCancel">キャンセル</button>
+      <button id="dlgOk">OK</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ================= ストレージ ================= */
+const LS_KEY = 'pikoChat_v1';
+let store = load();
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {
+    apiKey:'', model:'claude-opus-4-8', window:10, maxTokens:2048,
+    system: '',
+    threads: [], currentId: null,
+    fx:150, credit:null,
+    usage:{inTok:0,outTok:0,usd:0}
+  };
+}
+/* モデル別料金($/100万トークン)。前方一致で判定、未知モデルはOpus料金で概算 */
+const PRICES=[
+  ['claude-fable-5',10,50],
+  ['claude-mythos',10,50],
+  ['claude-opus-4-1',15,75],
+  ['claude-opus-4-2',15,75],
+  ['claude-opus-4-0',15,75],
+  ['claude-opus-4-2025',15,75],
+  ['claude-opus-4',5,25],
+  ['claude-opus-3',15,75],
+  ['claude-sonnet',3,15],
+  ['claude-3-7-sonnet',3,15],
+  ['claude-3-5-sonnet',3,15],
+  ['claude-haiku-4',1,5],
+  ['claude-3-5-haiku',0.8,4],
+  ['claude-3-haiku',0.25,1.25]
+];
+function priceOf(model){
+  const hit=PRICES.find(p=>model.startsWith(p[0]));
+  return hit?{inP:hit[1],outP:hit[2]}:{inP:5,outP:25};
+}
+function calcUsd(model,inTok,outTok){
+  const p=priceOf(model);
+  return inTok/1e6*p.inP + outTok/1e6*p.outP;
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function currentThread(){
+  return store.threads.find(t=>t.id===store.currentId) || null;
+}
+function ensureThread(){
+  let t = currentThread();
+  if(!t){
+    t = {id:uid(), title:'', created:Date.now(), updated:Date.now(), messages:[]};
+    store.threads.unshift(t);
+    store.currentId = t.id;
+  }
+  return t;
+}
+
+/* ================= UI要素 ================= */
+const $ = id=>document.getElementById(id);
+const chatArea=$('chatArea'), input=$('input'), sendBtn=$('sendBtn'), typing=$('typing');
+
+/* ---- トースト ---- */
+let toastTimer=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ---- 確認ダイアログ ---- */
+function confirmDlg(msg, okLabel='OK'){
+  return new Promise(res=>{
+    $('dlgMsg').textContent=msg;
+    $('dlgInput').style.display='none';
+    $('dlgOk').textContent=okLabel;
+    $('dlgWrap').classList.add('open');
+    const done=v=>{ $('dlgWrap').classList.remove('open'); ok.removeEventListener('click',y); ca.removeEventListener('click',n); res(v); };
+    const ok=$('dlgOk'), ca=$('dlgCancel');
+    const y=()=>done(true), n=()=>done(false);
+    ok.addEventListener('click',y); ca.addEventListener('click',n);
+  });
+}
+
+/* ---- 入力ダイアログ ---- */
+function promptDlg(msg, initial='', okLabel='OK'){
+  return new Promise(res=>{
+    $('dlgMsg').textContent=msg;
+    const inp=$('dlgInput');
+    inp.style.display='block'; inp.value=initial;
+    $('dlgOk').textContent=okLabel;
+    $('dlgWrap').classList.add('open');
+    setTimeout(()=>inp.focus(),100);
+    const done=v=>{ $('dlgWrap').classList.remove('open'); inp.style.display='none'; ok.removeEventListener('click',y); ca.removeEventListener('click',n); res(v); };
+    const ok=$('dlgOk'), ca=$('dlgCancel');
+    const y=()=>done(inp.value.trim()), n=()=>done(null);
+    ok.addEventListener('click',y); ca.addEventListener('click',n);
+  });
+}
+
+/* ---- 選択ダイアログ ---- */
+function selectDlg(msg, options, current, okLabel='OK'){
+  return new Promise(res=>{
+    $('dlgMsg').textContent=msg;
+    const sel=$('dlgSelect');
+    sel.innerHTML='';
+    options.forEach(o=>{
+      const op=document.createElement('option');
+      op.value=o.value; op.textContent=o.label;
+      sel.appendChild(op);
+    });
+    sel.value=current;
+    sel.style.display='block';
+    $('dlgOk').textContent=okLabel;
+    $('dlgWrap').classList.add('open');
+    const done=v=>{ $('dlgWrap').classList.remove('open'); sel.style.display='none'; ok.removeEventListener('click',y); ca.removeEventListener('click',n); res(v); };
+    const ok=$('dlgOk'), ca=$('dlgCancel');
+    const y=()=>done(sel.value), n=()=>done(null);
+    ok.addEventListener('click',y); ca.addEventListener('click',n);
+  });
+}
+
+/* ---- ルーム別モデル ---- */
+function effectiveModel(t){ return (t && t.model) ? t.model : store.model; }
+$('modelLabel').style.textDecoration='underline dotted';
+$('modelLabel').addEventListener('click',async()=>{
+  const t=currentThread();
+  if(!t){ toast('まず会話を始めてね'); return; }
+  const opts=[{value:'',label:'共通設定に従う（'+store.model+'）'}];
+  [...document.querySelectorAll('#setModel option')].forEach(o=>{
+    if(o.value && o.value!=='__custom__') opts.push({value:o.value,label:o.textContent});
+  });
+  const picked=await selectDlg('このルーム専用のモデルを選んでね', opts, t.model||'', '決定');
+  if(picked===null) return;
+  if(picked===''){ delete t.model; } else { t.model=picked; }
+  save(); renderHeader();
+  toast(picked ? 'このルームは '+picked+' を使います' : '共通設定に戻しました');
+});
+
+function renderHeader(){
+  const t=currentThread();
+  $('threadTitle').textContent = t && t.title ? t.title : 'ぴこチャット';
+  const m=effectiveModel(t);
+  $('modelLabel').textContent = m + (t && t.model ? '（このルーム専用）' : '');
+}
+function renderChat(){
+  chatArea.innerHTML='';
+  const t=currentThread();
+  if(!t || t.messages.length===0){
+    chatArea.innerHTML='<div id="emptyHint">まだメッセージがないよ。<br>下の入力欄から話しかけてね💕</div>';
+    return;
+  }
+  let lastDate='';
+  t.messages.forEach((m,i)=>{
+    if(m.ts){
+      const d=new Date(m.ts);
+      const dayStr=d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',weekday:'short'});
+      if(dayStr!==lastDate){
+        lastDate=dayStr;
+        const dv=document.createElement('div');
+        dv.className='dateDiv'; dv.textContent=dayStr;
+        chatArea.appendChild(dv);
+      }
+    }
+    const div=document.createElement('div');
+    div.className='msg '+m.role;
+    const name = m.role==='user' ? 'みい' : 'ぴこ';
+    const timeHtml = m.ts ? '<div class="time">'+new Date(m.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'</div>' : '';
+    div.innerHTML='<div class="bubble"><div class="name">'+name+'</div><span class="txt"></span>'+timeHtml+'<button class="del" data-i="'+i+'">✕</button></div>';
+    div.querySelector('.txt').textContent=m.content;
+    chatArea.appendChild(div);
+  });
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+function renderThreads(filter=''){
+  const list=$('threadList'); list.innerHTML='';
+  const q=filter.trim().toLowerCase();
+  const items = store.threads.filter(t=>{
+    if(!q) return true;
+    if((t.title||'').toLowerCase().includes(q)) return true;
+    return t.messages.some(m=>m.content.toLowerCase().includes(q));
+  });
+  if(items.length===0){
+    list.innerHTML='<div style="color:var(--sub);text-align:center;font-size:13px;margin-top:30px">該当する会話がありません</div>';
+    return;
+  }
+  items.forEach(t=>{
+    const d=document.createElement('div');
+    d.className='thread'+(t.id===store.currentId?' active':'');
+    const date=new Date(t.updated).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    d.innerHTML='<div class="tinfo"><div class="tname"></div><div class="tmeta">'+date+'・'+t.messages.length+'件</div></div><button class="tedit" style="color:var(--sub);font-size:16px;padding:8px">✏️</button><button class="tdel">🗑</button>';
+    d.querySelector('.tname').textContent=t.title||'(無題の会話)';
+    d.querySelector('.tedit').addEventListener('click',async e=>{
+      e.stopPropagation();
+      const name=await promptDlg('会話のタイトルを入力してね', t.title||'', '変更');
+      if(name!==null && name!==''){
+        t.title=name; save();
+        renderThreads($('searchBox').value); renderHeader();
+        toast('タイトルを変更しました');
+      }
+    });
+    d.querySelector('.tinfo').addEventListener('click',()=>{
+      store.currentId=t.id; save();
+      $('threadsPanel').classList.remove('open');
+      renderHeader(); renderChat();
+    });
+    d.querySelector('.tdel').addEventListener('click',async e=>{
+      e.stopPropagation();
+      if(await confirmDlg('この会話を削除する？\n「'+(t.title||'無題の会話')+'」','削除')){
+        store.threads=store.threads.filter(x=>x.id!==t.id);
+        if(store.currentId===t.id) store.currentId = store.threads[0]?.id || null;
+        save(); renderThreads($('searchBox').value); renderHeader(); renderChat();
+        toast('会話を削除しました');
+      }
+    });
+    list.appendChild(d);
+  });
+}
+
+/* ================= 送信 ================= */
+let busy=false;
+async function send(){
+  const text=input.value.trim();
+  if(!text||busy) return;
+  if(!store.apiKey){ toast('先に設定からAPIキーを入れてね'); openSettings(); return; }
+  if(!store.system || !store.system.trim()){ toast('先に設定からシステムプロンプトを入れてね'); openSettings(); return; }
+
+  const t=ensureThread();
+  t.messages.push({role:'user',content:text,ts:Date.now()});
+  if(!t.title) t.title = text.slice(0,20);
+  t.updated=Date.now(); save();
+  input.value=''; autoGrow();
+  renderHeader(); renderChat();
+
+  busy=true; sendBtn.disabled=true; typing.classList.add('on');
+  try{
+    // 直近N往復だけ送る
+    let msgs=t.messages;
+    const win=Number(store.window);
+    if(win>0){
+      msgs = msgs.slice(-(win*2));
+      if(msgs[0] && msgs[0].role==='assistant') msgs=msgs.slice(1);
+    }
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':store.apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:effectiveModel(t),
+        max_tokens:Number(store.maxTokens),
+        system:store.knowledge && store.knowledge.trim() ? store.system+'\n\n【ナレッジ】\n'+store.knowledge : store.system,
+        messages:msgs.map(m=>({role:m.role,content:m.content}))
+      })
+    });
+    const data=await res.json();
+    if(!res.ok){
+      const emsg=data?.error?.message||('HTTPエラー '+res.status);
+      throw new Error(emsg);
+    }
+    const reply=(data.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
+    t.messages.push({role:'assistant',content:reply||'(応答が空でした)',ts:Date.now()});
+    if(data.usage){
+      const ui=data.usage.input_tokens||0, uo=data.usage.output_tokens||0;
+      const usd=calcUsd(effectiveModel(t),ui,uo);
+      t.usage=t.usage||{inTok:0,outTok:0,usd:0};
+      t.usage.inTok+=ui; t.usage.outTok+=uo; t.usage.usd+=usd;
+      store.usage=store.usage||{inTok:0,outTok:0,usd:0};
+      store.usage.inTok+=ui; store.usage.outTok+=uo; store.usage.usd+=usd;
+    }
+    t.updated=Date.now(); save(); renderChat();
+  }catch(err){
+    toast('エラー: '+err.message);
+  }finally{
+    busy=false; sendBtn.disabled=false; typing.classList.remove('on');
+  }
+}
+sendBtn.addEventListener('click',send);
+function autoGrow(){ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,130)+'px'; }
+input.addEventListener('input',autoGrow);
+
+/* ================= メッセージ削除モード ================= */
+$('btnEdit').addEventListener('click',()=>{
+  document.body.classList.toggle('editMode');
+  toast(document.body.classList.contains('editMode')?'✕を押すとメッセージを削除できます':'編集モード終了');
+});
+chatArea.addEventListener('click',async e=>{
+  const btn=e.target.closest('.del');
+  if(!btn) return;
+  const i=Number(btn.dataset.i);
+  const t=currentThread(); if(!t) return;
+  if(await confirmDlg('このメッセージを削除する？','削除')){
+    t.messages.splice(i,1); t.updated=Date.now(); save(); renderChat();
+    toast('削除しました');
+  }
+});
+
+/* ================= パネル開閉 ================= */
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.addEventListener('click',()=>$(b.dataset.close).classList.remove('open'));
+});
+$('btnThreads').addEventListener('click',()=>{
+  renderThreads($('searchBox').value);
+  $('threadsPanel').classList.add('open');
+});
+$('searchBox').addEventListener('input',e=>renderThreads(e.target.value));
+$('btnNewThread').addEventListener('click',()=>{
+  store.currentId=null; ensureThread(); save();
+  $('threadsPanel').classList.remove('open');
+  renderHeader(); renderChat();
+  toast('新しい会話を始めました');
+});
+
+/* ================= 使用量パネル ================= */
+function yen(usd){ return '¥'+Math.round(usd*(store.fx||150)).toLocaleString(); }
+function renderCost(){
+  const t=currentThread();
+  const tu=t&&t.usage?t.usage:{inTok:0,outTok:0,usd:0};
+  const su=store.usage||{inTok:0,outTok:0,usd:0};
+  $('cThreadIn').textContent=tu.inTok.toLocaleString();
+  $('cThreadOut').textContent=tu.outTok.toLocaleString();
+  $('cThreadCost').textContent=yen(tu.usd)+' ($'+tu.usd.toFixed(3)+')';
+  $('cTotalCost').textContent=yen(su.usd)+' ($'+su.usd.toFixed(2)+')';
+  if(store.credit===null||store.credit===undefined||store.credit===''){
+    $('cRemain').textContent='未設定';
+  }else{
+    const rem=Number(store.credit)-su.usd;
+    $('cRemain').textContent='$'+rem.toFixed(2)+'（'+yen(rem)+'）';
+  }
+}
+$('btnCost').addEventListener('click',()=>{ renderCost(); $('costWrap').classList.add('open'); });
+$('costWrap').addEventListener('click',e=>{ if(e.target.id==='costWrap') $('costWrap').classList.remove('open'); });
+
+$('btnResetUsage').addEventListener('click',async()=>{
+  if(await confirmDlg('累計使用量をリセットする？\n（会話ごとの記録はそのまま残ります）','リセット')){
+    store.usage={inTok:0,outTok:0,usd:0}; save(); renderUsageSummary();
+    toast('累計をリセットしました');
+  }
+});
+function renderUsageSummary(){
+  const su=store.usage||{inTok:0,outTok:0,usd:0};
+  $('usageSummary').textContent='累計: 入力'+su.inTok.toLocaleString()+' / 出力'+su.outTok.toLocaleString()+'トークン ＝ 約'+yen(su.usd)+' ($'+su.usd.toFixed(2)+')';
+}
+
+/* ================= 設定 ================= */
+function syncModelCustom(){
+  const isCustom = $('setModel').value==='__custom__';
+  $('setModelCustom').style.display = isCustom ? 'block' : 'none';
+}
+$('setModel').addEventListener('change',syncModelCustom);
+function openSettings(){
+  $('setApiKey').value=store.apiKey;
+  const opts=[...$('setModel').options].map(o=>o.value);
+  if(opts.includes(store.model)){
+    $('setModel').value=store.model;
+    $('setModelCustom').value='';
+  }else{
+    $('setModel').value='__custom__';
+    $('setModelCustom').value=store.model;
+  }
+  syncModelCustom();
+  $('setCredit').value=(store.credit===null||store.credit===undefined)?'':store.credit;
+  $('setFx').value=store.fx||150;
+  renderUsageSummary();
+  $('setWindow').value=String(store.window);
+  $('setMaxTokens').value=String(store.maxTokens);
+  $('setSystem').value=store.system||'';
+  $('systemMissingHint').style.display=(store.system&&store.system.trim())?'none':'block';
+  $('setKnowledge').value=store.knowledge||''; renderKnowledgeMeter();
+  $('settingsPanel').classList.add('open');
+}
+$('btnSettings').addEventListener('click',openSettings);
+$('btnSaveSettings').addEventListener('click',()=>{
+  store.apiKey=$('setApiKey').value.trim();
+  const mv=$('setModel').value;
+  if(mv==='__custom__'){
+    const cm=$('setModelCustom').value.trim();
+    if(!cm){ toast('モデルIDを入力してね'); return; }
+    store.model=cm;
+  }else{
+    store.model=mv;
+  }
+  store.window=Number($('setWindow').value);
+  store.maxTokens=Number($('setMaxTokens').value);
+  const cv=$('setCredit').value.trim();
+  store.credit = cv==='' ? null : Number(cv);
+  store.fx = Number($('setFx').value)||150;
+  store.system=$('setSystem').value;
+  store.knowledge=$('setKnowledge').value;
+  save(); renderHeader();
+  $('systemMissingHint').style.display=(store.system&&store.system.trim())?'none':'block';
+  $('settingsPanel').classList.remove('open');
+  toast('設定を保存しました');
+});
+
+/* ---- ナレッジ容量メーター ---- */
+function estimateTokens(text){
+  // ざっくり推定: 日本語≒1文字1トークン強、英数字≒4文字1トークン
+  let jp=0, ascii=0;
+  for(const ch of text){ (ch.charCodeAt(0)<128 ? ascii++ : jp++); }
+  return Math.round(jp*1.1 + ascii/4);
+}
+function renderKnowledgeMeter(){
+  const text=$('setKnowledge').value;
+  const el=$('knowledgeMeter');
+  if(!text.trim()){ el.textContent='現在: 空（追加料金なし）'; return; }
+  const tok=estimateTokens(text);
+  const p=priceOf(store.model);
+  const addYen=(tok/1e6*p.inP)*(store.fx||150);
+  el.textContent='現在: '+text.length.toLocaleString()+'文字 ≒ '+tok.toLocaleString()+'トークン（1回あたり約'+(addYen<1?addYen.toFixed(2):addYen.toFixed(1))+'円の上乗せ）';
+}
+$('setKnowledge').addEventListener('input',renderKnowledgeMeter);
+$('btnLoadKnowledge').addEventListener('click',()=>$('knowledgeFile').click());
+$('knowledgeFile').addEventListener('change',async e=>{
+  const file=e.target.files[0]; e.target.value='';
+  if(!file) return;
+  try{
+    const text=await file.text();
+    const cur=$('setKnowledge').value;
+    $('setKnowledge').value = cur ? cur+'\n\n'+text : text;
+    renderKnowledgeMeter();
+    toast('「'+file.name+'」を読み込みました（保存ボタンで確定）');
+  }catch(err){ toast('読み込み失敗: '+err.message); }
+});
+
+/* ================= エクスポート / インポート ================= */
+$('btnExport').addEventListener('click',()=>{
+  const data={app:'pikoChat',version:1,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const d=new Date(), pad=n=>String(n).padStart(2,'0');
+  a.download='pikoChat_'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('エクスポートしました');
+});
+$('btnExportClipboard').addEventListener('click',async()=>{
+  const data={app:'pikoChat',version:1,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const text=JSON.stringify(data,null,2);
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      toast('クリップボードにコピーしました');
+      return;
+    }
+    throw new Error('clipboard API未対応');
+  }catch(err){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=text;
+      ta.style.position='fixed';
+      ta.style.top='-9999px';
+      ta.style.left='-9999px';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      const ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok){ toast('クリップボードにコピーしました'); }
+      else{ toast('コピーに失敗しました'); }
+    }catch(err2){
+      toast('コピーに失敗しました: '+err2.message);
+    }
+  }
+});
+$('btnImport').addEventListener('click',()=>$('importFile').click());
+$('importFile').addEventListener('change',async e=>{
+  const file=e.target.files[0]; e.target.value='';
+  if(!file) return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!Array.isArray(data.threads)) throw new Error('形式が違います');
+    const mode=await confirmDlg('インポート方法を選んでね\n\nOK＝今のデータに追加（マージ）\nキャンセル＝選び直す','追加する');
+    if(mode){
+      const ids=new Set(store.threads.map(t=>t.id));
+      data.threads.forEach(t=>{ if(!ids.has(t.id)) store.threads.push(t); });
+      store.threads.sort((a,b)=>b.updated-a.updated);
+    }else{
+      const rep=await confirmDlg('今のデータを全部消して、ファイルの内容で置き換える？','置き換える');
+      if(!rep){ toast('キャンセルしました'); return; }
+      store.threads=data.threads;
+      store.currentId=store.threads[0]?.id||null;
+    }
+    save(); renderThreads(); renderHeader(); renderChat();
+    toast('インポートしました');
+  }catch(err){ toast('読み込み失敗: '+err.message); }
+});
+
+/* ================= 全削除 ================= */
+$('btnWipe').addEventListener('click',async()=>{
+  if(!await confirmDlg('全データ（会話・設定・APIキー）を削除する？','削除')) return;
+  if(!await confirmDlg('本当に消していい？この操作は戻せません。','完全に削除')) return;
+  localStorage.removeItem(LS_KEY);
+  store=load(); renderHeader(); renderChat();
+  $('settingsPanel').classList.remove('open');
+  toast('すべて削除しました');
+});
+
+/* ================= 起動 ================= */
+renderHeader(); renderChat();
+if(!store.apiKey || !store.system || !store.system.trim()){ setTimeout(openSettings,300); }
+</script>
+</body>
+</html>
