@@ -383,10 +383,16 @@ const BASE_PROVIDERS=[
 /* 2026年7月時点の主なモデル。古くなったら「IDを直接入力」で対応してね */
 const PRESET_MODELS={
   anthropic:['claude-opus-4-8','claude-fable-5','claude-sonnet-4-6','claude-haiku-4-5-20251001','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-opus-4-1-20250805','claude-sonnet-4-5-20250929','claude-3-5-haiku-20241022'],
-  openai:['gpt-5.6','gpt-5.5','gpt-5.4','gpt-5.2','gpt-5.1','gpt-5-mini','gpt-4.1','gpt-4o','o3','o3-mini'],
+  openai:['gpt-5.6','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.2','gpt-5.1','gpt-5-mini','gpt-4.1','gpt-4o','o3','o3-mini'],
   gemini:['gemini-3.5-flash','gemini-3.1-pro-preview','gemini-3.1-flash','gemini-3.1-flash-lite'],
   grok:['grok-4.5','grok-4.3']
 };
+const MODEL_LABELS={
+  'gpt-5.6':'gpt-5.6（Sol・最高性能）',
+  'gpt-5.6-terra':'gpt-5.6-terra（バランス）',
+  'gpt-5.6-luna':'gpt-5.6-luna（低価格）'
+};
+function modelName(model){ return MODEL_LABELS[model]||model; }
 /* 初期単価($/100万トークン)。設定画面で自由に編集できます */
 const DEFAULT_PRICES=[
   ['claude-fable-5',10,50],
@@ -518,7 +524,7 @@ function splitModel(v){
 function modelDisp(v){
   const {pid,model}=splitModel(v);
   const p=provById(pid);
-  return (p?p.name:pid)+' / '+model;
+  return (p?p.name:pid)+' / '+modelName(model);
 }
 
 /* ---- 単価(編集可能・前方一致・未知はnull) ---- */
@@ -625,7 +631,7 @@ function buildModelOptions(){
   const opts=[];
   allProviders().forEach(p=>{
     (PRESET_MODELS[p.id]||[]).forEach(m=>{
-      opts.push({value:p.id+'::'+m, label:p.name+' / '+m});
+      opts.push({value:p.id+'::'+m, label:p.name+' / '+modelName(m)});
     });
     opts.push({value:'__custom__@'+p.id, label:p.name+' /（IDを直接入力）'});
   });
@@ -993,7 +999,7 @@ function buildModelSelect(){
     const g=document.createElement('optgroup'); g.label=p.name;
     (PRESET_MODELS[p.id]||[]).forEach(m=>{
       const o=document.createElement('option');
-      o.value=p.id+'::'+m; o.textContent=m;
+      o.value=p.id+'::'+m; o.textContent=modelName(m);
       g.appendChild(o);
     });
     const oc=document.createElement('option');
