@@ -243,7 +243,16 @@ header .title .model{font-size:11px;color:var(--sub)}
       <div class="hint">OpenRouter・Groq・DeepSeekなど、OpenAI互換のAPIを追加できます。URLは「…/chat/completions」まで入れてね。<br>例: https://openrouter.ai/api/v1/chat/completions<br>※サービスによってはブラウザから直接繋げない（CORS制限）場合があります。</div>
     </div>
     <div class="field">
-      <label>モデル（共通設定）</label>
+      <label>キャラクター管理</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <select id="setCharacter" style="flex:1"></select>
+        <button class="iconbtn" id="btnAddCharacter" type="button" title="キャラクター追加">＋</button>
+        <button class="iconbtn" id="btnDeleteCharacter" type="button" title="キャラクター削除">🗑</button>
+      </div>
+      <div class="hint">キャラごとに名前・システムプロンプト・ナレッジ・標準モデルを保存します。新しい会話を作るときにキャラを選び、会話開始後は固定されます。</div>
+    </div>
+    <div class="field">
+      <label>このキャラの標準モデル</label>
       <select id="setModel"></select>
       <input type="text" id="setModelCustom" placeholder="例: gpt-5-mini" style="display:none;margin-top:8px">
       <div class="hint">リストにないモデルは各プロバイダーの「IDを直接入力」を選んでね。ルームごとの切り替えは画面上部のモデル名タップ。</div>
@@ -268,29 +277,29 @@ header .title .model{font-size:11px;color:var(--sub)}
       </select>
     </div>
     <div class="field">
-      <label>名前の設定</label>
+      <label>名前とアプリ名</label>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <div style="flex:1;min-width:0">
           <div class="hint" style="margin-bottom:4px">あなたの名前</div>
           <input type="text" id="setUserName" placeholder="みい">
         </div>
         <div style="flex:1;min-width:0">
-          <div class="hint" style="margin-bottom:4px">AIの名前</div>
+          <div class="hint" style="margin-bottom:4px">このキャラの名前</div>
           <input type="text" id="setAiName" placeholder="ぴこ">
         </div>
       </div>
       <div class="hint" style="margin-bottom:4px">アプリ名（ヘッダーに表示）</div>
       <input type="text" id="setAppName" placeholder="ぴこチャット">
-      <div class="hint">吹き出しの名前や「入力中…」の表示に使われます。空欄なら初期値のまま。</div>
+      <div class="hint">キャラ名は吹き出しや「入力中…」の表示に使われます。</div>
     </div>
     <div class="field">
       <label>システムプロンプト（キャラ設定）</label>
-      <textarea id="setSystem" placeholder="ここにシステムプロンプト（キャラ設定）を貼り付けて保存してください。未設定の間はぴことしての応答ができません。"></textarea>
+      <textarea id="setSystem" placeholder="選択中のキャラクターのシステムプロンプトを貼り付けてください。"></textarea>
       <div class="hint" id="systemMissingHint" style="display:none;color:#c0392b;font-weight:700">⚠️ システムプロンプトが未設定です。上の欄に貼り付けて「設定を保存」を押してください。</div>
     </div>
     <div class="field">
       <label>ナレッジ（追加の記憶・設定）</label>
-      <textarea id="setKnowledge" style="min-height:120px" placeholder="ぴこに毎回伝えたいこと（二人の思い出、最近の出来事など）。空欄なら料金は変わりません。"></textarea>
+      <textarea id="setKnowledge" style="min-height:120px" placeholder="選択中のキャラクターに毎回伝えたいこと。空欄なら料金は変わりません。"></textarea>
       <div class="hint" id="knowledgeMeter" style="font-weight:700"></div>
       <button class="btn ghost" id="btnLoadKnowledge" style="margin-top:8px">📎 テキストファイルを読み込んで追加（.txt / .md）</button>
       <input type="file" id="knowledgeFile" accept=".txt,.md,text/plain,text/markdown" style="display:none">
@@ -313,12 +322,13 @@ header .title .model{font-size:11px;color:var(--sub)}
         <span>💲 モデル別単価表</span><span id="priceToggleMark">▼ 開く</span>
       </button>
       <div id="priceSection" style="display:none;margin-top:10px">
+        <div id="priceDataStatus" class="hint" style="margin-bottom:8px;font-weight:700;color:var(--accent)"></div>
         <div id="priceHead" style="display:flex;gap:6px;margin-bottom:4px;font-size:11px;color:var(--sub);font-weight:700">
           <span style="flex:2">モデルID（前方一致）</span><span style="flex:1">入力$</span><span style="flex:1">出力$</span><span style="flex:none;width:24px"></span>
         </div>
         <div id="priceRows"></div>
         <button class="btn ghost" id="btnAddPrice" style="margin-top:4px">＋ 単価を追加</button>
-        <div class="hint">単価は「100万トークンあたりのドル」。入力$＝送る側（みいのメッセージや履歴）、出力$＝返事側の単価です。各社の公式料金ページの Input / Output をそのまま写してね。<br>モデルIDは前方一致で判定します（例:「gpt-5」でgpt-5.2にも一致。上の行が優先）。表にないモデルはトークン数だけ記録され、金額は加算されません。</div>
+        <div class="hint">単価は「100万トークンあたりのドル」。入力$＝送る側（みいのメッセージや履歴）、出力$＝返事側の単価です。各社の公式料金ページの Input / Output をそのまま写してね。GPTはStandardの短いコンテキスト料金を初期登録しています。長大な入力やBatch・Flex・Priorityでは料金が異なります。<br>モデルIDは前方一致で判定します（例:「gpt-5」でgpt-5.2にも一致。上の行が優先）。表にないモデルはトークン数だけ記録され、金額は加算されません。</div>
       </div>
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:18px 0">
@@ -392,21 +402,73 @@ const DEFAULT_PRICES=[
   ['claude-3-5-sonnet',3,15],
   ['claude-haiku-4',1,5],
   ['claude-3-5-haiku',0.8,4],
-  ['claude-3-haiku',0.25,1.25]
+  ['claude-3-haiku',0.25,1.25],
+  /* OpenAI Standard料金（短いコンテキスト、$/100万トークン） */
+  ['gpt-5.6-sol',5,30],
+  ['gpt-5.6-terra',2.5,15],
+  ['gpt-5.6-luna',1,6],
+  ['gpt-5.6',5,30],
+  ['gpt-5.5',5,30],
+  ['gpt-5.4-mini',0.75,4.5],
+  ['gpt-5.4-nano',0.2,1.25],
+  ['gpt-5.4',2.5,15],
+  ['gpt-5.2',1.75,14],
+  ['gpt-5.1',1.25,10],
+  ['gpt-5-mini',0.25,2],
+  ['gpt-5-nano',0.05,0.4],
+  ['gpt-5',1.25,10],
+  ['gpt-4.1',2,8],
+  ['gpt-4o',2.5,10],
+  ['o3-mini',1.1,4.4],
+  ['o3',2,8]
 ];
 
 let store = load();
 function migrate(s){
-  if(!s.providers){
+  if(!s||typeof s!=='object') s={};
+  if(!s.providers||typeof s.providers!=='object'||Array.isArray(s.providers)){
     s.providers={anthropic:{key:s.apiKey||''},openai:{key:''},gemini:{key:''},grok:{key:''}};
     delete s.apiKey;
   }
+  if(!Array.isArray(s.threads)) s.threads=[];
   BASE_PROVIDERS.forEach(p=>{ if(!s.providers[p.id]) s.providers[p.id]={key:''}; });
   if(!Array.isArray(s.customProviders)) s.customProviders=[];
-  if(!Array.isArray(s.prices)) s.prices=DEFAULT_PRICES.map(r=>r.slice());
+  if(!Array.isArray(s.prices)){
+    s.prices=DEFAULT_PRICES.map(r=>r.slice());
+  }else{
+    /* 更新前から使っている端末にも、未登録の初期単価だけを追加。手入力済みの行は上書きしない */
+    const registered=new Set(s.prices.filter(Array.isArray).map(r=>String(r[0]||'').trim()));
+    DEFAULT_PRICES.forEach(r=>{ if(!registered.has(r[0])) s.prices.push(r.slice()); });
+  }
   if(s.model && !s.model.includes('::')) s.model='anthropic::'+s.model;
   if(!s.model) s.model='anthropic::claude-opus-4-8';
   (s.threads||[]).forEach(t=>{ if(t.model && !t.model.includes('::')) t.model='anthropic::'+t.model; });
+  /* 旧版の共通設定を、最初のキャラクター「ぴこ」へ移行 */
+  if(!Array.isArray(s.characters)||!s.characters.length){
+    s.characters=[{
+      id:'char_'+uid(),
+      name:(typeof s.aiName==='string'&&s.aiName.trim())?s.aiName.trim():'ぴこ',
+      system:typeof s.system==='string'?s.system:'',
+      knowledge:typeof s.knowledge==='string'?s.knowledge:'',
+      model:s.model
+    }];
+  }
+  const seenCharacterIds=new Set();
+  s.characters=s.characters.map((c,i)=>{
+    let id=(c&&typeof c.id==='string'&&c.id)?c.id:'char_'+uid();
+    if(seenCharacterIds.has(id)) id='char_'+uid();
+    seenCharacterIds.add(id);
+    return {
+    id,
+    name:(c&&typeof c.name==='string'&&c.name.trim())?c.name.trim():(i===0?'ぴこ':'キャラクター'),
+    system:c&&typeof c.system==='string'?c.system:'',
+    knowledge:c&&typeof c.knowledge==='string'?c.knowledge:'',
+    model:c&&typeof c.model==='string'&&c.model?(c.model.includes('::')?c.model:'anthropic::'+c.model):s.model
+  };});
+  if(!s.characters.some(c=>c.id===s.defaultCharacterId)) s.defaultCharacterId=s.characters[0].id;
+  (s.threads||[]).forEach(t=>{
+    if(!s.characters.some(c=>c.id===t.characterId)) t.characterId=s.defaultCharacterId;
+  });
   /* 残高・累計をプロバイダー別に移行（旧データはすべてClaude扱い） */
   if(!s.credits){
     s.credits={};
@@ -476,10 +538,14 @@ function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(
 function currentThread(){
   return store.threads.find(t=>t.id===store.currentId) || null;
 }
-function ensureThread(){
+function characterById(id){ return (store.characters||[]).find(c=>c.id===id)||null; }
+function defaultCharacter(){ return characterById(store.defaultCharacterId)||(store.characters||[])[0]; }
+function characterForThread(t){ return characterById(t&&t.characterId)||defaultCharacter(); }
+function ensureThread(characterId){
   let t = currentThread();
   if(!t){
-    t = {id:uid(), title:'', created:Date.now(), updated:Date.now(), messages:[]};
+    const c=characterById(characterId)||defaultCharacter();
+    t = {id:uid(), title:'', created:Date.now(), updated:Date.now(), messages:[], characterId:c.id};
     store.threads.unshift(t);
     store.currentId = t.id;
   }
@@ -551,7 +617,10 @@ function selectDlg(msg, options, current, okLabel='OK'){
 }
 
 /* ---- ルーム別モデル ---- */
-function effectiveModel(t){ return (t && t.model) ? t.model : store.model; }
+function effectiveModel(t){
+  const c=characterForThread(t);
+  return (t && t.model) ? t.model : (c&&c.model ? c.model : store.model);
+}
 function buildModelOptions(){
   const opts=[];
   allProviders().forEach(p=>{
@@ -566,7 +635,8 @@ $('modelLabel').style.textDecoration='underline dotted';
 $('modelLabel').addEventListener('click',async()=>{
   const t=currentThread();
   if(!t){ toast('まず会話を始めてね'); return; }
-  const opts=[{value:'',label:'共通設定に従う（'+modelDisp(store.model)+'）'}].concat(buildModelOptions());
+  const c=characterForThread(t);
+  const opts=[{value:'',label:'キャラ設定に従う（'+modelDisp(c.model)+'）'}].concat(buildModelOptions());
   const picked=await selectDlg('このルーム専用のモデルを選んでね', opts, t.model||'', '決定');
   if(picked===null) return;
   if(picked===''){ delete t.model; }
@@ -581,7 +651,7 @@ $('modelLabel').addEventListener('click',async()=>{
     t.model=picked;
   }
   save(); renderHeader();
-  toast(t.model ? 'このルームは '+modelDisp(t.model)+' を使います' : '共通設定に戻しました');
+  toast(t.model ? 'このルームは '+modelDisp(t.model)+' を使います' : 'キャラ設定に戻しました');
 });
 
 function renderHeader(){
@@ -589,7 +659,8 @@ function renderHeader(){
   $('threadTitle').textContent = t && t.title ? t.title : store.appName;
   document.title=store.appName;
   const m=effectiveModel(t);
-  $('modelLabel').textContent = modelDisp(m) + (t && t.model ? '（このルーム専用）' : '');
+  const c=characterForThread(t);
+  $('modelLabel').textContent = (c?c.name+'・':'')+modelDisp(m) + (t && t.model ? '（このルーム専用）' : '');
 }
 function renderChat(){
   chatArea.innerHTML='';
@@ -599,6 +670,7 @@ function renderChat(){
     return;
   }
   let lastDate='';
+  const threadCharacter=characterForThread(t);
   t.messages.forEach((m,i)=>{
     if(m.ts){
       const d=new Date(m.ts);
@@ -612,7 +684,7 @@ function renderChat(){
     }
     const div=document.createElement('div');
     div.className='msg '+m.role;
-    const name = m.role==='user' ? store.userName : store.aiName;
+    const name = m.role==='user' ? store.userName : threadCharacter.name;
     const timeHtml = m.ts ? '<div class="time">'+new Date(m.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'</div>' : '';
     const hasModel = (m.role==='assistant' && m.usedModel);
     div.innerHTML='<div class="bubble"><div class="name"></div><span class="txt"></span>'+timeHtml+(hasModel?'<div class="usedModel"></div>':'')+'<button class="del" data-i="'+i+'">✕</button></div>';
@@ -639,8 +711,9 @@ function renderThreads(filter=''){
     const d=document.createElement('div');
     d.className='thread'+(t.id===store.currentId?' active':'');
     const date=new Date(t.updated).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    d.innerHTML='<div class="tinfo"><div class="tname"></div><div class="tmeta">'+date+'・'+t.messages.length+'件</div></div><button class="tedit" style="color:var(--sub);font-size:16px;padding:8px">✏️</button><button class="tdel">🗑</button>';
+    d.innerHTML='<div class="tinfo"><div class="tname"></div><div class="tmeta"><span class="tchar"></span>・'+date+'・'+t.messages.length+'件</div></div><button class="tedit" style="color:var(--sub);font-size:16px;padding:8px">✏️</button><button class="tdel">🗑</button>';
     d.querySelector('.tname').textContent=t.title||'(無題の会話)';
+    d.querySelector('.tchar').textContent=characterForThread(t).name;
     d.querySelector('.tedit').addEventListener('click',async e=>{
       e.stopPropagation();
       const name=await promptDlg('会話のタイトルを入力してね', t.title||'', '変更');
@@ -673,20 +746,22 @@ let busy=false;
 async function send(){
   const text=input.value.trim();
   if(!text||busy) return;
-  const pre=splitModel(effectiveModel(currentThread()));
+  const initialThread=currentThread();
+  const character=characterForThread(initialThread);
+  const pre=splitModel(effectiveModel(initialThread));
   const preProv=provById(pre.pid);
   if(!preProv){ toast('モデルのプロバイダー設定が見つかりません。設定を確認してね'); openSettings(); return; }
   if(!keyOf(pre.pid)){ toast('先に設定から'+preProv.name+'のAPIキーを入れてね'); openSettings(); return; }
-  if(!store.system || !store.system.trim()){ toast('先に設定からシステムプロンプトを入れてね'); openSettings(); return; }
+  if(!character.system || !character.system.trim()){ toast(character.name+'のシステムプロンプトを設定してね'); openSettings(); return; }
 
-  const t=ensureThread();
+  const t=ensureThread(character.id);
   t.messages.push({role:'user',content:text,ts:Date.now()});
   if(!t.title) t.title = text.slice(0,20);
   t.updated=Date.now(); save();
   input.value=''; autoGrow();
   renderHeader(); renderChat();
 
-  typing.textContent=store.aiName+'が入力中…💭';
+  typing.textContent=character.name+'が入力中…💭';
   busy=true; sendBtn.disabled=true; typing.classList.add('on');
   try{
     // 直近N往復だけ送る
@@ -700,7 +775,7 @@ async function send(){
     const {pid,model}=splitModel(mv);
     const prov=provById(pid);
     const apiKey=keyOf(pid);
-    const sys = store.knowledge && store.knowledge.trim() ? store.system+'\n\n【ナレッジ】\n'+store.knowledge : store.system;
+    const sys = character.knowledge && character.knowledge.trim() ? character.system+'\n\n【ナレッジ】\n'+character.knowledge : character.system;
     const plain=msgs.map(m=>({role:m.role,content:m.content}));
 
     let reply='', usedModel=model, ui=0, uo=0;
@@ -796,11 +871,16 @@ $('btnThreads').addEventListener('click',()=>{
   $('threadsPanel').classList.add('open');
 });
 $('searchBox').addEventListener('input',e=>renderThreads(e.target.value));
-$('btnNewThread').addEventListener('click',()=>{
-  store.currentId=null; ensureThread(); save();
+$('btnNewThread').addEventListener('click',async()=>{
+  let characterId=store.defaultCharacterId;
+  if(store.characters.length>1){
+    characterId=await selectDlg('誰と新しい会話を始める？',store.characters.map(c=>({value:c.id,label:c.name})),characterId,'このキャラで開始');
+    if(characterId===null) return;
+  }
+  store.currentId=null; ensureThread(characterId); save();
   $('threadsPanel').classList.remove('open');
   renderHeader(); renderChat();
-  toast('新しい会話を始めました');
+  toast(characterById(characterId).name+'との新しい会話を始めました');
 });
 
 /* ================= 使用量パネル ================= */
@@ -893,15 +973,17 @@ function renderCustomProvs(){
     keyEl.addEventListener('input',()=>c.key=keyEl.value.trim());
     box.querySelector('[data-cdel]').addEventListener('click',async()=>{
       if(await confirmDlg('カスタムプロバイダー「'+(c.name||'無名')+'」を削除する？','削除')){
-        editCustoms.splice(i,1); renderCustomProvs(); buildModelSelect();
+        saveCharacterForm();
+        editCustoms.splice(i,1); renderCustomProvs(); buildModelSelect(); loadCharacterForm(editingCharacterId);
       }
     });
     wrap.appendChild(box);
   });
 }
 $('btnAddProv').addEventListener('click',()=>{
+  saveCharacterForm();
   editCustoms.push({id:'cp_'+uid(), name:'', url:'', key:''});
-  renderCustomProvs();
+  renderCustomProvs(); buildModelSelect(); loadCharacterForm(editingCharacterId);
 });
 /* ---- モデル選択（optgroupを動的生成） ---- */
 function buildModelSelect(){
@@ -925,11 +1007,108 @@ function syncModelCustom(){
   $('setModelCustom').style.display = isCustom ? 'block' : 'none';
 }
 $('setModel').addEventListener('change',syncModelCustom);
+
+/* ---- キャラクター編集 ---- */
+let editCharacters=[];
+let editingCharacterId=null;
+function modelFromCharacterForm(){
+  const mv=$('setModel').value;
+  if(!mv) return null;
+  if(mv.startsWith('__custom__@')){
+    const id=$('setModelCustom').value.trim();
+    return id ? mv.slice('__custom__@'.length)+'::'+id : null;
+  }
+  return mv;
+}
+function setCharacterModelForm(value){
+  const opts=[...$('setModel').options].map(o=>o.value);
+  if(opts.includes(value)){
+    $('setModel').value=value;
+    $('setModelCustom').value='';
+  }else{
+    const {pid,model}=splitModel(value||store.model);
+    const direct='__custom__@'+pid;
+    $('setModel').value=opts.includes(direct)?direct:(opts[0]||'');
+    $('setModelCustom').value=opts.includes(direct)?model:'';
+  }
+  syncModelCustom();
+}
+function saveCharacterForm(){
+  const c=editCharacters.find(x=>x.id===editingCharacterId);
+  if(!c) return;
+  c.name=$('setAiName').value.trim()||'キャラクター';
+  c.system=$('setSystem').value;
+  c.knowledge=$('setKnowledge').value;
+  const model=modelFromCharacterForm();
+  if(model) c.model=model;
+}
+function renderCharacterSelect(){
+  const sel=$('setCharacter'); sel.innerHTML='';
+  editCharacters.forEach(c=>{
+    const o=document.createElement('option'); o.value=c.id; o.textContent=c.name;
+    sel.appendChild(o);
+  });
+  sel.value=editingCharacterId;
+}
+function loadCharacterForm(id){
+  const c=editCharacters.find(x=>x.id===id)||editCharacters[0];
+  if(!c) return;
+  editingCharacterId=c.id;
+  $('setCharacter').value=c.id;
+  $('setAiName').value=c.name;
+  $('setSystem').value=c.system;
+  $('setKnowledge').value=c.knowledge;
+  setCharacterModelForm(c.model);
+  $('systemMissingHint').style.display=c.system.trim()?'none':'block';
+  renderKnowledgeMeter();
+}
+$('setCharacter').addEventListener('change',e=>{
+  const next=e.target.value;
+  saveCharacterForm();
+  renderCharacterSelect();
+  loadCharacterForm(next);
+});
+$('btnAddCharacter').addEventListener('click',()=>{
+  saveCharacterForm();
+  const c={id:'char_'+uid(),name:'新しいキャラ',system:'',knowledge:'',model:(editCharacters.find(x=>x.id===editingCharacterId)||defaultCharacter()).model};
+  editCharacters.push(c); editingCharacterId=c.id;
+  renderCharacterSelect(); loadCharacterForm(c.id);
+  toast('新しいキャラを追加しました。内容を入れて保存してね');
+});
+$('btnDeleteCharacter').addEventListener('click',async()=>{
+  saveCharacterForm();
+  const c=editCharacters.find(x=>x.id===editingCharacterId);
+  if(editCharacters.length<=1){ toast('キャラクターは1人以上必要です'); return; }
+  if(store.threads.some(t=>t.characterId===c.id)){
+    toast('このキャラの会話が残っているため削除できません'); return;
+  }
+  if(!await confirmDlg('キャラクター「'+c.name+'」を削除する？','削除')) return;
+  editCharacters=editCharacters.filter(x=>x.id!==c.id);
+  editingCharacterId=editCharacters[0].id;
+  renderCharacterSelect(); loadCharacterForm(editingCharacterId);
+});
 /* ---- 単価表エディタ ---- */
 let editPrices=[];
 function renderPriceRows(){
   const wrap=$('priceRows'); wrap.innerHTML='';
-  editPrices.forEach((r,i)=>{
+  const groupOf=r=>{
+    const id=String(r&&r[0]||'').toLowerCase();
+    if(id.startsWith('gpt-')||/^o\d/.test(id)) return 0;
+    if(id.startsWith('claude')) return 1;
+    return 2;
+  };
+  const groupNames=['OpenAI / GPT','Claude','その他'];
+  const shown=editPrices.map((r,i)=>({r,i,g:groupOf(r)})).sort((a,b)=>a.g-b.g||a.i-b.i);
+  const gptCount=shown.filter(x=>x.g===0).length;
+  $('priceDataStatus').textContent='✅ GPT・OpenAI系の単価を '+gptCount+'件 登録済み';
+  let lastGroup=-1;
+  shown.forEach(({r,i,g})=>{
+    if(g!==lastGroup){
+      const head=document.createElement('div');
+      head.textContent=groupNames[g];
+      head.style.cssText='font-size:12px;font-weight:800;color:var(--sub);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)';
+      wrap.appendChild(head); lastGroup=g;
+    }
     const row=document.createElement('div');
     row.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
     row.innerHTML=
@@ -981,17 +1160,11 @@ function openSettings(){
   renderProvKeys();
   editCustoms=(store.customProviders||[]).map(c=>Object.assign({},c));
   renderCustomProvs();
+  editCharacters=(store.characters||[]).map(c=>Object.assign({},c));
+  editingCharacterId=(characterForThread(currentThread())||defaultCharacter()).id;
   buildModelSelect();
-  const opts=[...$('setModel').options].map(o=>o.value);
-  if(opts.includes(store.model)){
-    $('setModel').value=store.model;
-    $('setModelCustom').value='';
-  }else{
-    const {pid,model}=splitModel(store.model);
-    $('setModel').value = opts.includes('__custom__@'+pid) ? '__custom__@'+pid : '__custom__@anthropic';
-    $('setModelCustom').value=model;
-  }
-  syncModelCustom();
+  renderCharacterSelect();
+  loadCharacterForm(editingCharacterId);
   editPrices=(store.prices||[]).map(r=>r.slice());
   renderPriceRows();
   setPriceOpen(false);
@@ -1001,15 +1174,12 @@ function openSettings(){
   $('setWindow').value=String(store.window);
   $('setMaxTokens').value=String(store.maxTokens);
   $('setUserName').value=store.userName||'';
-  $('setAiName').value=store.aiName||'';
   $('setAppName').value=store.appName||'';
-  $('setSystem').value=store.system||'';
-  $('systemMissingHint').style.display=(store.system&&store.system.trim())?'none':'block';
-  $('setKnowledge').value=store.knowledge||''; renderKnowledgeMeter();
   $('settingsPanel').classList.add('open');
 }
 $('btnSettings').addEventListener('click',openSettings);
 $('btnSaveSettings').addEventListener('click',()=>{
+  saveCharacterForm();
   // プロバイダーキー
   document.querySelectorAll('#provKeys [data-pk]').forEach(el=>{
     const pid=el.dataset.pk;
@@ -1018,18 +1188,16 @@ $('btnSaveSettings').addEventListener('click',()=>{
   });
   // カスタムプロバイダー（名前かURLが入っているものだけ保存）
   store.customProviders=editCustoms.filter(c=>(c.name&&c.name.trim())||(c.url&&c.url.trim()));
-  // モデル
-  const mv=$('setModel').value;
-  if(mv.startsWith('__custom__@')){
-    const pid=mv.slice('__custom__@'.length);
-    const cm=$('setModelCustom').value.trim();
-    if(!cm){ toast('モデルIDを入力してね'); return; }
-    store.model=pid+'::'+cm;
-  }else{
-    store.model=mv;
-  }
-  // カスタムプロバイダー削除でモデルが宙に浮いた場合の保険
-  if(!provById(splitModel(store.model).pid)) store.model='anthropic::claude-opus-4-8';
+  if(!modelFromCharacterForm()){ toast('モデルIDを入力してね'); return; }
+  // キャラクターと標準モデル。カスタムプロバイダー削除時はClaudeへ戻す
+  store.characters=editCharacters.map(c=>Object.assign({},c));
+  store.characters.forEach(c=>{
+    if(!provById(splitModel(c.model).pid)) c.model='anthropic::claude-opus-4-8';
+  });
+  if(!store.characters.some(c=>c.id===store.defaultCharacterId)) store.defaultCharacterId=store.characters[0].id;
+  const def=defaultCharacter();
+  /* 旧版との互換用コピー（実際の会話ではキャラ設定を使用） */
+  store.model=def.model; store.aiName=def.name; store.system=def.system; store.knowledge=def.knowledge;
   // 単価表（前方一致文字列が入っている行だけ保存）
   store.prices=editPrices
     .filter(r=>r[0]&&String(r[0]).trim())
@@ -1044,12 +1212,9 @@ $('btnSaveSettings').addEventListener('click',()=>{
   });
   store.fx = Number($('setFx').value)||150;
   store.userName=$('setUserName').value.trim()||'みい';
-  store.aiName=$('setAiName').value.trim()||'ぴこ';
   store.appName=$('setAppName').value.trim()||'ぴこチャット';
-  store.system=$('setSystem').value;
-  store.knowledge=$('setKnowledge').value;
   save(); renderHeader();
-  $('systemMissingHint').style.display=(store.system&&store.system.trim())?'none':'block';
+  $('systemMissingHint').style.display=(characterById(editingCharacterId).system.trim())?'none':'block';
   $('settingsPanel').classList.remove('open');
   toast('設定を保存しました');
 });
@@ -1066,7 +1231,7 @@ function renderKnowledgeMeter(){
   const el=$('knowledgeMeter');
   if(!text.trim()){ el.textContent='現在: 空（追加料金なし）'; return; }
   const tok=estimateTokens(text);
-  const p=priceOf(store.model);
+  const p=priceOf(modelFromCharacterForm()||store.model);
   if(!p){
     el.textContent='現在: '+text.length.toLocaleString()+'文字 ≒ '+tok.toLocaleString()+'トークン（単価未設定のため金額は概算できません）';
     return;
@@ -1089,8 +1254,17 @@ $('knowledgeFile').addEventListener('change',async e=>{
 });
 
 /* ================= エクスポート / インポート ================= */
+function exportData(){
+  return {
+    app:'pikoChat', version:3, exported:new Date().toISOString(),
+    characters:store.characters.map(c=>Object.assign({},c)),
+    defaultCharacterId:store.defaultCharacterId,
+    threads:store.threads,
+    userName:store.userName, appName:store.appName
+  };
+}
 $('btnExport').addEventListener('click',()=>{
-  const data={app:'pikoChat',version:2,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const data=exportData();
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1100,7 +1274,7 @@ $('btnExport').addEventListener('click',()=>{
   toast('エクスポートしました');
 });
 $('btnExportClipboard').addEventListener('click',async()=>{
-  const data={app:'pikoChat',version:2,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const data=exportData();
   const text=JSON.stringify(data,null,2);
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1134,6 +1308,20 @@ $('importFile').addEventListener('change',async e=>{
   try{
     const data=JSON.parse(await file.text());
     if(!Array.isArray(data.threads)) throw new Error('形式が違います');
+    const importedCharacters=Array.isArray(data.characters) ? data.characters
+      .filter(c=>c&&typeof c==='object')
+      .map((c,i)=>({
+        id:typeof c.id==='string'&&c.id?c.id:'char_'+uid(),
+        name:typeof c.name==='string'&&c.name.trim()?c.name.trim():(i===0?'ぴこ':'キャラクター'),
+        system:typeof c.system==='string'?c.system:'',
+        knowledge:typeof c.knowledge==='string'?c.knowledge:'',
+        model:typeof c.model==='string'&&c.model?(c.model.includes('::')?c.model:'anthropic::'+c.model):store.model
+      })) : [];
+    const importedCharacterIds=new Set();
+    importedCharacters.forEach(c=>{
+      if(importedCharacterIds.has(c.id)) c.id='char_'+uid();
+      importedCharacterIds.add(c.id);
+    });
     /* データを正規化（文字列であるべき所を強制し、不正な要素は除外） */
     const clean=data.threads
       .filter(t=>t && typeof t==='object' && Array.isArray(t.messages))
@@ -1143,6 +1331,7 @@ $('importFile').addEventListener('change',async e=>{
         created: Number(t.created)||Date.now(),
         updated: Number(t.updated)||Date.now(),
         model: typeof t.model==='string' ? t.model : undefined,
+        characterId: typeof t.characterId==='string' ? t.characterId : undefined,
         usage: (t.usage&&typeof t.usage==='object') ? {inTok:Number(t.usage.inTok)||0,outTok:Number(t.usage.outTok)||0,usd:Number(t.usage.usd)||0} : undefined,
         messages: t.messages
           .filter(m=>m && (m.role==='user'||m.role==='assistant'))
@@ -1156,15 +1345,34 @@ $('importFile').addEventListener('change',async e=>{
     data.threads=clean;
     const mode=await confirmDlg('インポート方法を選んでね\n\nOK＝今のデータに追加（マージ）\nキャンセル＝選び直す','追加する');
     if(mode){
+      const characterMap={};
+      importedCharacters.forEach(c=>{
+        const same=store.characters.find(x=>x.id===c.id);
+        if(!same){ store.characters.push(c); characterMap[c.id]=c.id; return; }
+        const sameProfile=['name','system','knowledge','model'].every(k=>same[k]===c[k]);
+        if(sameProfile){ characterMap[c.id]=same.id; return; }
+        const copy=Object.assign({},c,{id:'char_'+uid()});
+        store.characters.push(copy); characterMap[c.id]=copy.id;
+      });
+      data.threads.forEach(t=>{ t.characterId=characterMap[t.characterId]||store.defaultCharacterId; });
       const ids=new Set(store.threads.map(t=>t.id));
       data.threads.forEach(t=>{ if(!ids.has(t.id)) store.threads.push(t); });
       store.threads.sort((a,b)=>b.updated-a.updated);
     }else{
       const rep=await confirmDlg('今のデータを全部消して、ファイルの内容で置き換える？','置き換える');
       if(!rep){ toast('キャンセルしました'); return; }
+      if(importedCharacters.length){
+        store.characters=importedCharacters;
+        store.defaultCharacterId=importedCharacters.some(c=>c.id===data.defaultCharacterId)?data.defaultCharacterId:importedCharacters[0].id;
+      }
+      data.threads.forEach(t=>{
+        if(!characterById(t.characterId)) t.characterId=store.defaultCharacterId;
+      });
       store.threads=data.threads;
       store.currentId=store.threads[0]?.id||null;
     }
+    const def=defaultCharacter();
+    store.model=def.model; store.aiName=def.name; store.system=def.system; store.knowledge=def.knowledge;
     save(); renderThreads(); renderHeader(); renderChat();
     toast('インポートしました');
   }catch(err){ toast('読み込み失敗: '+err.message); }
@@ -1182,7 +1390,8 @@ $('btnWipe').addEventListener('click',async()=>{
 
 /* ================= 起動 ================= */
 renderHeader(); renderChat();
-if(!keyOf(splitModel(store.model).pid) || !store.system || !store.system.trim()){ setTimeout(openSettings,300); }
+const startupCharacter=characterForThread(currentThread());
+if(!keyOf(splitModel(effectiveModel(currentThread())).pid) || !startupCharacter.system || !startupCharacter.system.trim()){ setTimeout(openSettings,300); }
 </script>
 </body>
 </html>
