@@ -69,6 +69,7 @@ header .title .model{font-size:11px;color:var(--sub)}
 .editMode .msg .del{display:block}
 .msg .time{font-size:10px;color:var(--sub);margin-top:4px;text-align:right}
 .msg.assistant .time{text-align:right}
+.msg .usedModel{font-size:10px;color:var(--sub);margin-top:2px;text-align:right;opacity:.75}
 .dateDiv{
   text-align:center;font-size:11px;color:var(--sub);margin:16px 0 12px;
   display:flex;align-items:center;gap:10px;
@@ -231,34 +232,21 @@ header .title .model{font-size:11px;color:var(--sub)}
   </div>
   <div class="pbody">
     <div class="field">
-      <label>APIキー</label>
-      <input type="password" id="setApiKey" placeholder="sk-ant-...">
+      <label>APIキー（使うプロバイダーだけ入力すればOK）</label>
+      <div id="provKeys"></div>
       <div class="hint">この端末のlocalStorageにのみ保存されます。</div>
     </div>
     <div class="field">
-      <label>モデル</label>
-      <select id="setModel">
-        <optgroup label="最新">
-          <option value="claude-opus-4-8">claude-opus-4-8</option>
-          <option value="claude-fable-5">claude-fable-5</option>
-          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
-        </optgroup>
-        <optgroup label="旧モデル">
-          <option value="claude-opus-4-7">claude-opus-4-7</option>
-          <option value="claude-opus-4-6">claude-opus-4-6</option>
-          <option value="claude-opus-4-5">claude-opus-4-5</option>
-          <option value="claude-opus-4-1-20250805">claude-opus-4-1</option>
-          <option value="claude-opus-4-20250514">claude-opus-4</option>
-          <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5</option>
-          <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
-          <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet</option>
-          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku</option>
-        </optgroup>
-        <option value="__custom__">その他（モデルIDを直接入力）</option>
-      </select>
-      <input type="text" id="setModelCustom" placeholder="例: claude-opus-4-5" style="display:none;margin-top:8px">
-      <div class="hint">リストにないモデルは「その他」を選んでIDを直接入力できます。</div>
+      <label>カスタムプロバイダー（OpenAI互換API）</label>
+      <div id="customProvList"></div>
+      <button class="btn ghost" id="btnAddProv" style="margin-top:4px">＋ カスタムプロバイダーを追加</button>
+      <div class="hint">OpenRouter・Groq・DeepSeekなど、OpenAI互換のAPIを追加できます。URLは「…/chat/completions」まで入れてね。<br>例: https://openrouter.ai/api/v1/chat/completions<br>※サービスによってはブラウザから直接繋げない（CORS制限）場合があります。</div>
+    </div>
+    <div class="field">
+      <label>モデル（共通設定）</label>
+      <select id="setModel"></select>
+      <input type="text" id="setModelCustom" placeholder="例: gpt-5-mini" style="display:none;margin-top:8px">
+      <div class="hint">リストにないモデルは各プロバイダーの「IDを直接入力」を選んでね。ルームごとの切り替えは画面上部のモデル名タップ。</div>
     </div>
     <div class="field">
       <label>APIに送る直近の往復数</label>
@@ -280,6 +268,22 @@ header .title .model{font-size:11px;color:var(--sub)}
       </select>
     </div>
     <div class="field">
+      <label>名前の設定</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <div class="hint" style="margin-bottom:4px">あなたの名前</div>
+          <input type="text" id="setUserName" placeholder="みい">
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="hint" style="margin-bottom:4px">AIの名前</div>
+          <input type="text" id="setAiName" placeholder="ぴこ">
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom:4px">アプリ名（ヘッダーに表示）</div>
+      <input type="text" id="setAppName" placeholder="ぴこチャット">
+      <div class="hint">吹き出しの名前や「入力中…」の表示に使われます。空欄なら初期値のまま。</div>
+    </div>
+    <div class="field">
       <label>システムプロンプト（キャラ設定）</label>
       <textarea id="setSystem" placeholder="ここにシステムプロンプト（キャラ設定）を貼り付けて保存してください。未設定の間はぴことしての応答ができません。"></textarea>
       <div class="hint" id="systemMissingHint" style="display:none;color:#c0392b;font-weight:700">⚠️ システムプロンプトが未設定です。上の欄に貼り付けて「設定を保存」を押してください。</div>
@@ -297,12 +301,25 @@ header .title .model{font-size:11px;color:var(--sub)}
     <div class="field">
       <label>💰 使用量・残高の管理</label>
       <div class="hint" id="usageSummary" style="margin-bottom:10px"></div>
-      <label style="font-weight:400;font-size:12px">クレジット残高（ドル）※追加購入したらここを書き換えてね</label>
-      <input type="number" id="setCredit" step="0.01" min="0" placeholder="例: 5">
+      <label style="font-weight:400;font-size:12px">クレジット残高（ドル・会社ごと）※追加購入したらここを書き換えてね</label>
+      <div id="creditRows" style="margin-top:6px"></div>
       <label style="font-weight:400;font-size:12px;margin-top:10px">為替レート（円/ドル）</label>
       <input type="number" id="setFx" step="1" min="1" value="150">
       <div class="hint">残高を入力すると、そこから使用分を引いた「残りの目安」が💰パネルに表示されます。金額はあくまで概算です。</div>
       <button class="btn ghost" id="btnResetUsage" style="margin-top:10px">累計使用量をリセット</button>
+    </div>
+    <div class="field">
+      <button class="btn gray" id="btnTogglePrices" style="display:flex;justify-content:space-between;align-items:center;text-align:left;margin-bottom:0">
+        <span>💲 モデル別単価表</span><span id="priceToggleMark">▼ 開く</span>
+      </button>
+      <div id="priceSection" style="display:none;margin-top:10px">
+        <div id="priceHead" style="display:flex;gap:6px;margin-bottom:4px;font-size:11px;color:var(--sub);font-weight:700">
+          <span style="flex:2">モデルID（前方一致）</span><span style="flex:1">入力$</span><span style="flex:1">出力$</span><span style="flex:none;width:24px"></span>
+        </div>
+        <div id="priceRows"></div>
+        <button class="btn ghost" id="btnAddPrice" style="margin-top:4px">＋ 単価を追加</button>
+        <div class="hint">単価は「100万トークンあたりのドル」。入力$＝送る側（みいのメッセージや履歴）、出力$＝返事側の単価です。各社の公式料金ページの Input / Output をそのまま写してね。<br>モデルIDは前方一致で判定します（例:「gpt-5」でgpt-5.2にも一致。上の行が優先）。表にないモデルはトークン数だけ記録され、金額は加算されません。</div>
+      </div>
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:18px 0">
     <button class="btn ghost" id="btnExport">会話をエクスポート（JSON）</button>
@@ -322,8 +339,9 @@ header .title .model{font-size:11px;color:var(--sub)}
     <div class="row"><span>概算金額</span><b id="cThreadCost">¥0</b></div>
     <h3 class="sec">📊 全体の累計</h3>
     <div class="row"><span>概算金額</span><b id="cTotalCost">¥0 ($0)</b></div>
-    <div class="row"><span>残高の目安</span><b id="cRemain">未設定</b></div>
-    <div class="note">概算です。正確な金額はAnthropicの管理画面で確認してね。残高は設定画面で記入できます。</div>
+    <h3 class="sec">💳 残高の目安（会社別）</h3>
+    <div id="remainRows"></div>
+    <div class="note">概算です。正確な金額は各プロバイダーの管理画面で確認してね。単価表にないモデルは金額に含まれません。残高は設定画面で記入できます。</div>
   </div>
 </div>
 
@@ -344,22 +362,23 @@ header .title .model{font-size:11px;color:var(--sub)}
 <script>
 /* ================= ストレージ ================= */
 const LS_KEY = 'pikoChat_v1';
-let store = load();
-function load(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){}
-  return {
-    apiKey:'', model:'claude-opus-4-8', window:10, maxTokens:2048,
-    system: '',
-    threads: [], currentId: null,
-    fx:150, credit:null,
-    usage:{inTok:0,outTok:0,usd:0}
-  };
-}
-/* モデル別料金($/100万トークン)。前方一致で判定、未知モデルはOpus料金で概算 */
-const PRICES=[
+
+/* ---- プロバイダー定義 ---- */
+const BASE_PROVIDERS=[
+  {id:'anthropic', name:'Claude',  fmt:'anthropic', url:'https://api.anthropic.com/v1/messages', ph:'sk-ant-...'},
+  {id:'openai',    name:'OpenAI',  fmt:'openai',    url:'https://api.openai.com/v1/chat/completions', ph:'sk-...'},
+  {id:'gemini',    name:'Gemini',  fmt:'openai',    url:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', ph:'AIza...'},
+  {id:'grok',      name:'Grok',    fmt:'openai',    url:'https://api.x.ai/v1/chat/completions', ph:'xai-...'}
+];
+/* 2026年7月時点の主なモデル。古くなったら「IDを直接入力」で対応してね */
+const PRESET_MODELS={
+  anthropic:['claude-opus-4-8','claude-fable-5','claude-sonnet-4-6','claude-haiku-4-5-20251001','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-opus-4-1-20250805','claude-sonnet-4-5-20250929','claude-3-5-haiku-20241022'],
+  openai:['gpt-5.6','gpt-5.5','gpt-5.4','gpt-5.2','gpt-5.1','gpt-5-mini','gpt-4.1','gpt-4o','o3','o3-mini'],
+  gemini:['gemini-3.5-flash','gemini-3.1-pro-preview','gemini-3.1-flash','gemini-3.1-flash-lite'],
+  grok:['grok-4.5','grok-4.3']
+};
+/* 初期単価($/100万トークン)。設定画面で自由に編集できます */
+const DEFAULT_PRICES=[
   ['claude-fable-5',10,50],
   ['claude-mythos',10,50],
   ['claude-opus-4-1',15,75],
@@ -375,12 +394,80 @@ const PRICES=[
   ['claude-3-5-haiku',0.8,4],
   ['claude-3-haiku',0.25,1.25]
 ];
-function priceOf(model){
-  const hit=PRICES.find(p=>model.startsWith(p[0]));
-  return hit?{inP:hit[1],outP:hit[2]}:{inP:5,outP:25};
+
+let store = load();
+function migrate(s){
+  if(!s.providers){
+    s.providers={anthropic:{key:s.apiKey||''},openai:{key:''},gemini:{key:''},grok:{key:''}};
+    delete s.apiKey;
+  }
+  BASE_PROVIDERS.forEach(p=>{ if(!s.providers[p.id]) s.providers[p.id]={key:''}; });
+  if(!Array.isArray(s.customProviders)) s.customProviders=[];
+  if(!Array.isArray(s.prices)) s.prices=DEFAULT_PRICES.map(r=>r.slice());
+  if(s.model && !s.model.includes('::')) s.model='anthropic::'+s.model;
+  if(!s.model) s.model='anthropic::claude-opus-4-8';
+  (s.threads||[]).forEach(t=>{ if(t.model && !t.model.includes('::')) t.model='anthropic::'+t.model; });
+  /* 残高・累計をプロバイダー別に移行（旧データはすべてClaude扱い） */
+  if(!s.credits){
+    s.credits={};
+    if(s.credit!==null && s.credit!==undefined && s.credit!=='') s.credits.anthropic=Number(s.credit);
+    delete s.credit;
+  }
+  if(!s.usageByProv){
+    s.usageByProv={};
+    if(s.usage && (s.usage.inTok||s.usage.outTok||s.usage.usd)){
+      s.usageByProv.anthropic={inTok:s.usage.inTok||0,outTok:s.usage.outTok||0,usd:s.usage.usd||0};
+    }
+  }
+  if(typeof s.userName!=='string'||!s.userName.trim()) s.userName='みい';
+  if(typeof s.aiName!=='string'||!s.aiName.trim()) s.aiName='ぴこ';
+  if(typeof s.appName!=='string'||!s.appName.trim()) s.appName='ぴこチャット';
+  return s;
 }
-function calcUsd(model,inTok,outTok){
-  const p=priceOf(model);
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return migrate(JSON.parse(raw));
+  }catch(e){}
+  return migrate({
+    model:'anthropic::claude-opus-4-8', window:10, maxTokens:2048,
+    system: '',
+    threads: [], currentId: null,
+    fx:150, credit:null,
+    usage:{inTok:0,outTok:0,usd:0}
+  });
+}
+
+/* ---- プロバイダー・モデルのヘルパー ---- */
+function allProviders(){
+  return BASE_PROVIDERS.concat((store.customProviders||[]).map(c=>({id:c.id,name:c.name||'カスタム',fmt:'openai',url:c.url||'',ph:'APIキー',custom:true})));
+}
+function provById(pid){ return allProviders().find(p=>p.id===pid)||null; }
+function keyOf(pid){
+  const c=(store.customProviders||[]).find(x=>x.id===pid);
+  if(c) return (c.key||'').trim();
+  return ((store.providers&&store.providers[pid]&&store.providers[pid].key)||'').trim();
+}
+function splitModel(v){
+  v=v||'';
+  const i=v.indexOf('::');
+  return i<0 ? {pid:'anthropic',model:v} : {pid:v.slice(0,i),model:v.slice(i+2)};
+}
+function modelDisp(v){
+  const {pid,model}=splitModel(v);
+  const p=provById(pid);
+  return (p?p.name:pid)+' / '+model;
+}
+
+/* ---- 単価(編集可能・前方一致・未知はnull) ---- */
+function priceOf(modelValue){
+  const {model}=splitModel(modelValue);
+  const hit=(store.prices||[]).find(p=>p[0] && model.startsWith(p[0]));
+  return hit?{inP:Number(hit[1])||0,outP:Number(hit[2])||0}:null;
+}
+function calcUsd(modelValue,inTok,outTok){
+  const p=priceOf(modelValue);
+  if(!p) return null;
   return inTok/1e6*p.inP + outTok/1e6*p.outP;
 }
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(store)); }
@@ -465,26 +552,44 @@ function selectDlg(msg, options, current, okLabel='OK'){
 
 /* ---- ルーム別モデル ---- */
 function effectiveModel(t){ return (t && t.model) ? t.model : store.model; }
+function buildModelOptions(){
+  const opts=[];
+  allProviders().forEach(p=>{
+    (PRESET_MODELS[p.id]||[]).forEach(m=>{
+      opts.push({value:p.id+'::'+m, label:p.name+' / '+m});
+    });
+    opts.push({value:'__custom__@'+p.id, label:p.name+' /（IDを直接入力）'});
+  });
+  return opts;
+}
 $('modelLabel').style.textDecoration='underline dotted';
 $('modelLabel').addEventListener('click',async()=>{
   const t=currentThread();
   if(!t){ toast('まず会話を始めてね'); return; }
-  const opts=[{value:'',label:'共通設定に従う（'+store.model+'）'}];
-  [...document.querySelectorAll('#setModel option')].forEach(o=>{
-    if(o.value && o.value!=='__custom__') opts.push({value:o.value,label:o.textContent});
-  });
+  const opts=[{value:'',label:'共通設定に従う（'+modelDisp(store.model)+'）'}].concat(buildModelOptions());
   const picked=await selectDlg('このルーム専用のモデルを選んでね', opts, t.model||'', '決定');
   if(picked===null) return;
-  if(picked===''){ delete t.model; } else { t.model=picked; }
+  if(picked===''){ delete t.model; }
+  else if(picked.startsWith('__custom__@')){
+    const pid=picked.slice('__custom__@'.length);
+    const p=provById(pid);
+    const cur=splitModel(t.model||'');
+    const id=await promptDlg(p.name+' のモデルIDを入力してね', cur.pid===pid?cur.model:'', '決定');
+    if(id===null || id==='') return;
+    t.model=pid+'::'+id;
+  }else{
+    t.model=picked;
+  }
   save(); renderHeader();
-  toast(picked ? 'このルームは '+picked+' を使います' : '共通設定に戻しました');
+  toast(t.model ? 'このルームは '+modelDisp(t.model)+' を使います' : '共通設定に戻しました');
 });
 
 function renderHeader(){
   const t=currentThread();
-  $('threadTitle').textContent = t && t.title ? t.title : 'ぴこチャット';
+  $('threadTitle').textContent = t && t.title ? t.title : store.appName;
+  document.title=store.appName;
   const m=effectiveModel(t);
-  $('modelLabel').textContent = m + (t && t.model ? '（このルーム専用）' : '');
+  $('modelLabel').textContent = modelDisp(m) + (t && t.model ? '（このルーム専用）' : '');
 }
 function renderChat(){
   chatArea.innerHTML='';
@@ -507,10 +612,13 @@ function renderChat(){
     }
     const div=document.createElement('div');
     div.className='msg '+m.role;
-    const name = m.role==='user' ? 'みい' : 'ぴこ';
+    const name = m.role==='user' ? store.userName : store.aiName;
     const timeHtml = m.ts ? '<div class="time">'+new Date(m.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'</div>' : '';
-    div.innerHTML='<div class="bubble"><div class="name">'+name+'</div><span class="txt"></span>'+timeHtml+'<button class="del" data-i="'+i+'">✕</button></div>';
+    const hasModel = (m.role==='assistant' && m.usedModel);
+    div.innerHTML='<div class="bubble"><div class="name"></div><span class="txt"></span>'+timeHtml+(hasModel?'<div class="usedModel"></div>':'')+'<button class="del" data-i="'+i+'">✕</button></div>';
+    div.querySelector('.name').textContent=name;
     div.querySelector('.txt').textContent=m.content;
+    if(hasModel) div.querySelector('.usedModel').textContent='使用モデル: '+String(m.usedModel);
     chatArea.appendChild(div);
   });
   chatArea.scrollTop = chatArea.scrollHeight;
@@ -565,7 +673,10 @@ let busy=false;
 async function send(){
   const text=input.value.trim();
   if(!text||busy) return;
-  if(!store.apiKey){ toast('先に設定からAPIキーを入れてね'); openSettings(); return; }
+  const pre=splitModel(effectiveModel(currentThread()));
+  const preProv=provById(pre.pid);
+  if(!preProv){ toast('モデルのプロバイダー設定が見つかりません。設定を確認してね'); openSettings(); return; }
+  if(!keyOf(pre.pid)){ toast('先に設定から'+preProv.name+'のAPIキーを入れてね'); openSettings(); return; }
   if(!store.system || !store.system.trim()){ toast('先に設定からシステムプロンプトを入れてね'); openSettings(); return; }
 
   const t=ensureThread();
@@ -575,6 +686,7 @@ async function send(){
   input.value=''; autoGrow();
   renderHeader(); renderChat();
 
+  typing.textContent=store.aiName+'が入力中…💭';
   busy=true; sendBtn.disabled=true; typing.classList.add('on');
   try{
     // 直近N往復だけ送る
@@ -584,35 +696,69 @@ async function send(){
       msgs = msgs.slice(-(win*2));
       if(msgs[0] && msgs[0].role==='assistant') msgs=msgs.slice(1);
     }
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':store.apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:effectiveModel(t),
-        max_tokens:Number(store.maxTokens),
-        system:store.knowledge && store.knowledge.trim() ? store.system+'\n\n【ナレッジ】\n'+store.knowledge : store.system,
-        messages:msgs.map(m=>({role:m.role,content:m.content}))
-      })
-    });
-    const data=await res.json();
-    if(!res.ok){
-      const emsg=data?.error?.message||('HTTPエラー '+res.status);
-      throw new Error(emsg);
+    const mv=effectiveModel(t);
+    const {pid,model}=splitModel(mv);
+    const prov=provById(pid);
+    const apiKey=keyOf(pid);
+    const sys = store.knowledge && store.knowledge.trim() ? store.system+'\n\n【ナレッジ】\n'+store.knowledge : store.system;
+    const plain=msgs.map(m=>({role:m.role,content:m.content}));
+
+    let reply='', usedModel=model, ui=0, uo=0;
+    if(prov.fmt==='anthropic'){
+      const res=await fetch(prov.url,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:model,
+          max_tokens:Number(store.maxTokens),
+          system:sys,
+          messages:plain
+        })
+      });
+      const data=await res.json();
+      if(!res.ok) throw new Error(data?.error?.message||('HTTPエラー '+res.status));
+      reply=(data.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
+      usedModel=data.model||model;
+      if(data.usage){ ui=data.usage.input_tokens||0; uo=data.usage.output_tokens||0; }
+    }else{
+      // OpenAI互換形式（OpenAI / Gemini / Grok / カスタム）
+      const body={ model:model, messages:[{role:'system',content:sys}].concat(plain) };
+      if(pid==='openai'){ body.max_completion_tokens=Number(store.maxTokens); }
+      else{ body.max_tokens=Number(store.maxTokens); }
+      const res=await fetch(prov.url,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+apiKey
+        },
+        body:JSON.stringify(body)
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){
+        const emsg=(data&&data.error&&(data.error.message||data.error))||('HTTPエラー '+res.status);
+        throw new Error(typeof emsg==='string'?emsg:JSON.stringify(emsg));
+      }
+      const msg=data.choices&&data.choices[0]&&data.choices[0].message;
+      reply=(msg&&typeof msg.content==='string'?msg.content:'').trim();
+      usedModel=data.model||model;
+      if(data.usage){ ui=data.usage.prompt_tokens||0; uo=data.usage.completion_tokens||0; }
     }
-    const reply=(data.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
-    t.messages.push({role:'assistant',content:reply||'(応答が空でした)',ts:Date.now()});
-    if(data.usage){
-      const ui=data.usage.input_tokens||0, uo=data.usage.output_tokens||0;
-      const usd=calcUsd(effectiveModel(t),ui,uo);
+
+    t.messages.push({role:'assistant',content:reply||'(応答が空でした)',ts:Date.now(),usedModel:prov.name+' / '+usedModel});
+    if(ui||uo){
+      const usd=calcUsd(mv,ui,uo);
       t.usage=t.usage||{inTok:0,outTok:0,usd:0};
-      t.usage.inTok+=ui; t.usage.outTok+=uo; t.usage.usd+=usd;
+      t.usage.inTok+=ui; t.usage.outTok+=uo; if(usd!==null) t.usage.usd+=usd;
       store.usage=store.usage||{inTok:0,outTok:0,usd:0};
-      store.usage.inTok+=ui; store.usage.outTok+=uo; store.usage.usd+=usd;
+      store.usage.inTok+=ui; store.usage.outTok+=uo; if(usd!==null) store.usage.usd+=usd;
+      store.usageByProv=store.usageByProv||{};
+      const pu=store.usageByProv[pid]=store.usageByProv[pid]||{inTok:0,outTok:0,usd:0};
+      pu.inTok+=ui; pu.outTok+=uo; if(usd!==null) pu.usd+=usd;
     }
     t.updated=Date.now(); save(); renderChat();
   }catch(err){
@@ -667,19 +813,41 @@ function renderCost(){
   $('cThreadOut').textContent=tu.outTok.toLocaleString();
   $('cThreadCost').textContent=yen(tu.usd)+' ($'+tu.usd.toFixed(3)+')';
   $('cTotalCost').textContent=yen(su.usd)+' ($'+su.usd.toFixed(2)+')';
-  if(store.credit===null||store.credit===undefined||store.credit===''){
-    $('cRemain').textContent='未設定';
-  }else{
-    const rem=Number(store.credit)-su.usd;
-    $('cRemain').textContent='$'+rem.toFixed(2)+'（'+yen(rem)+'）';
+  /* 会社別の残高目安（残高が設定されているか、使用実績のある会社を表示） */
+  const wrap=$('remainRows'); wrap.innerHTML='';
+  let any=false;
+  allProviders().forEach(p=>{
+    const cr=store.credits?store.credits[p.id]:undefined;
+    const pu=(store.usageByProv&&store.usageByProv[p.id])||{usd:0};
+    const hasCredit=cr!==null&&cr!==undefined&&cr!=='';
+    if(!hasCredit && !pu.usd) return;
+    any=true;
+    const row=document.createElement('div');
+    row.className='row';
+    let val;
+    if(hasCredit){
+      const rem=Number(cr)-pu.usd;
+      val='$'+rem.toFixed(2)+'（'+yen(rem)+'）';
+    }else{
+      val='残高未設定（使用 $'+pu.usd.toFixed(2)+'）';
+    }
+    row.innerHTML='<span></span><b></b>';
+    row.querySelector('span').textContent=p.name;
+    row.querySelector('b').textContent=val;
+    wrap.appendChild(row);
+  });
+  if(!any){
+    wrap.innerHTML='<div class="row"><span>未設定</span><b>-</b></div>';
   }
 }
 $('btnCost').addEventListener('click',()=>{ renderCost(); $('costWrap').classList.add('open'); });
 $('costWrap').addEventListener('click',e=>{ if(e.target.id==='costWrap') $('costWrap').classList.remove('open'); });
 
 $('btnResetUsage').addEventListener('click',async()=>{
-  if(await confirmDlg('累計使用量をリセットする？\n（会話ごとの記録はそのまま残ります）','リセット')){
-    store.usage={inTok:0,outTok:0,usd:0}; save(); renderUsageSummary();
+  if(await confirmDlg('累計使用量をリセットする？\n（全体・会社別の両方。会話ごとの記録はそのまま残ります）','リセット')){
+    store.usage={inTok:0,outTok:0,usd:0};
+    store.usageByProv={};
+    save(); renderUsageSummary();
     toast('累計をリセットしました');
   }
 });
@@ -689,27 +857,152 @@ function renderUsageSummary(){
 }
 
 /* ================= 設定 ================= */
+/* ---- プロバイダーキー入力欄 ---- */
+function renderProvKeys(){
+  const wrap=$('provKeys'); wrap.innerHTML='';
+  BASE_PROVIDERS.forEach(p=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px';
+    row.innerHTML='<span style="flex:none;width:64px;font-size:13px;font-weight:700">'+p.name+'</span>'+
+      '<input type="password" data-pk="'+p.id+'" placeholder="'+p.ph+'" style="flex:1;border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--panel);outline:none;min-width:0">';
+    row.querySelector('input').value=(store.providers[p.id]&&store.providers[p.id].key)||'';
+    wrap.appendChild(row);
+  });
+}
+/* ---- カスタムプロバイダー ---- */
+let editCustoms=[]; // 設定画面表示中の編集用コピー
+function renderCustomProvs(){
+  const wrap=$('customProvList'); wrap.innerHTML='';
+  if(editCustoms.length===0){
+    wrap.innerHTML='<div class="hint" style="margin-bottom:6px">まだ追加されていません</div>';
+  }
+  editCustoms.forEach((c,i)=>{
+    const box=document.createElement('div');
+    box.style.cssText='border:1.5px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--panel)';
+    box.innerHTML=
+      '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">'+
+        '<input type="text" data-cf="name" placeholder="名前（例: OpenRouter）" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;outline:none;min-width:0">'+
+        '<button data-cdel="'+i+'" style="flex:none;color:var(--sub);font-size:17px;padding:6px">🗑</button>'+
+      '</div>'+
+      '<input type="text" data-cf="url" placeholder="https://…/v1/chat/completions" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;outline:none;margin-bottom:8px;font-size:13px">'+
+      '<input type="password" data-cf="key" placeholder="APIキー" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;outline:none">';
+    const [nameEl,urlEl,keyEl]=box.querySelectorAll('[data-cf]');
+    nameEl.value=c.name||''; urlEl.value=c.url||''; keyEl.value=c.key||'';
+    nameEl.addEventListener('input',()=>c.name=nameEl.value);
+    urlEl.addEventListener('input',()=>c.url=urlEl.value.trim());
+    keyEl.addEventListener('input',()=>c.key=keyEl.value.trim());
+    box.querySelector('[data-cdel]').addEventListener('click',async()=>{
+      if(await confirmDlg('カスタムプロバイダー「'+(c.name||'無名')+'」を削除する？','削除')){
+        editCustoms.splice(i,1); renderCustomProvs(); buildModelSelect();
+      }
+    });
+    wrap.appendChild(box);
+  });
+}
+$('btnAddProv').addEventListener('click',()=>{
+  editCustoms.push({id:'cp_'+uid(), name:'', url:'', key:''});
+  renderCustomProvs();
+});
+/* ---- モデル選択（optgroupを動的生成） ---- */
+function buildModelSelect(){
+  const sel=$('setModel'); sel.innerHTML='';
+  const provs=BASE_PROVIDERS.concat(editCustoms.map(c=>({id:c.id,name:c.name||'カスタム'})));
+  provs.forEach(p=>{
+    const g=document.createElement('optgroup'); g.label=p.name;
+    (PRESET_MODELS[p.id]||[]).forEach(m=>{
+      const o=document.createElement('option');
+      o.value=p.id+'::'+m; o.textContent=m;
+      g.appendChild(o);
+    });
+    const oc=document.createElement('option');
+    oc.value='__custom__@'+p.id; oc.textContent='（IDを直接入力）';
+    g.appendChild(oc);
+    sel.appendChild(g);
+  });
+}
 function syncModelCustom(){
-  const isCustom = $('setModel').value==='__custom__';
+  const isCustom = $('setModel').value.startsWith('__custom__@');
   $('setModelCustom').style.display = isCustom ? 'block' : 'none';
 }
 $('setModel').addEventListener('change',syncModelCustom);
+/* ---- 単価表エディタ ---- */
+let editPrices=[];
+function renderPriceRows(){
+  const wrap=$('priceRows'); wrap.innerHTML='';
+  editPrices.forEach((r,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
+    row.innerHTML=
+      '<input type="text" data-pf="0" placeholder="モデルID前方" style="flex:2;border:1.5px solid var(--line);border-radius:10px;padding:8px 8px;outline:none;font-size:13px;min-width:0">'+
+      '<input type="number" data-pf="1" step="0.01" min="0" placeholder="入力$" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:8px 6px;outline:none;font-size:13px;min-width:0">'+
+      '<input type="number" data-pf="2" step="0.01" min="0" placeholder="出力$" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:8px 6px;outline:none;font-size:13px;min-width:0">'+
+      '<button data-pdel="'+i+'" style="flex:none;color:var(--sub);font-size:15px;padding:4px">✕</button>';
+    const inputs=row.querySelectorAll('[data-pf]');
+    inputs.forEach(el=>{
+      const f=Number(el.dataset.pf);
+      el.value=r[f]===''||r[f]===undefined?'':r[f];
+      el.addEventListener('input',()=>{ r[f]= f===0 ? el.value.trim() : el.value; });
+    });
+    row.querySelector('[data-pdel]').addEventListener('click',()=>{
+      editPrices.splice(i,1); renderPriceRows();
+    });
+    wrap.appendChild(row);
+  });
+}
+$('btnAddPrice').addEventListener('click',()=>{
+  editPrices.push(['','','']);
+  renderPriceRows();
+});
+/* 単価表の開閉 */
+function setPriceOpen(open){
+  $('priceSection').style.display=open?'block':'none';
+  $('priceToggleMark').textContent=open?'▲ 閉じる':'▼ 開く';
+}
+$('btnTogglePrices').addEventListener('click',()=>{
+  setPriceOpen($('priceSection').style.display==='none');
+});
+
+/* ---- 会社別残高入力欄 ---- */
+function renderCreditRows(){
+  const wrap=$('creditRows'); wrap.innerHTML='';
+  allProviders().forEach(p=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    row.innerHTML='<span style="flex:none;width:80px;font-size:12px;font-weight:700"></span>'+
+      '<input type="number" data-cr="'+p.id+'" step="0.01" min="0" placeholder="未設定" style="flex:1;border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--panel);outline:none;min-width:0">';
+    row.querySelector('span').textContent=p.name;
+    const cr=store.credits?store.credits[p.id]:undefined;
+    row.querySelector('input').value=(cr===null||cr===undefined)?'':cr;
+    wrap.appendChild(row);
+  });
+}
+
 function openSettings(){
-  $('setApiKey').value=store.apiKey;
+  renderProvKeys();
+  editCustoms=(store.customProviders||[]).map(c=>Object.assign({},c));
+  renderCustomProvs();
+  buildModelSelect();
   const opts=[...$('setModel').options].map(o=>o.value);
   if(opts.includes(store.model)){
     $('setModel').value=store.model;
     $('setModelCustom').value='';
   }else{
-    $('setModel').value='__custom__';
-    $('setModelCustom').value=store.model;
+    const {pid,model}=splitModel(store.model);
+    $('setModel').value = opts.includes('__custom__@'+pid) ? '__custom__@'+pid : '__custom__@anthropic';
+    $('setModelCustom').value=model;
   }
   syncModelCustom();
-  $('setCredit').value=(store.credit===null||store.credit===undefined)?'':store.credit;
+  editPrices=(store.prices||[]).map(r=>r.slice());
+  renderPriceRows();
+  setPriceOpen(false);
+  renderCreditRows();
   $('setFx').value=store.fx||150;
   renderUsageSummary();
   $('setWindow').value=String(store.window);
   $('setMaxTokens').value=String(store.maxTokens);
+  $('setUserName').value=store.userName||'';
+  $('setAiName').value=store.aiName||'';
+  $('setAppName').value=store.appName||'';
   $('setSystem').value=store.system||'';
   $('systemMissingHint').style.display=(store.system&&store.system.trim())?'none':'block';
   $('setKnowledge').value=store.knowledge||''; renderKnowledgeMeter();
@@ -717,20 +1010,42 @@ function openSettings(){
 }
 $('btnSettings').addEventListener('click',openSettings);
 $('btnSaveSettings').addEventListener('click',()=>{
-  store.apiKey=$('setApiKey').value.trim();
+  // プロバイダーキー
+  document.querySelectorAll('#provKeys [data-pk]').forEach(el=>{
+    const pid=el.dataset.pk;
+    store.providers[pid]=store.providers[pid]||{};
+    store.providers[pid].key=el.value.trim();
+  });
+  // カスタムプロバイダー（名前かURLが入っているものだけ保存）
+  store.customProviders=editCustoms.filter(c=>(c.name&&c.name.trim())||(c.url&&c.url.trim()));
+  // モデル
   const mv=$('setModel').value;
-  if(mv==='__custom__'){
+  if(mv.startsWith('__custom__@')){
+    const pid=mv.slice('__custom__@'.length);
     const cm=$('setModelCustom').value.trim();
     if(!cm){ toast('モデルIDを入力してね'); return; }
-    store.model=cm;
+    store.model=pid+'::'+cm;
   }else{
     store.model=mv;
   }
+  // カスタムプロバイダー削除でモデルが宙に浮いた場合の保険
+  if(!provById(splitModel(store.model).pid)) store.model='anthropic::claude-opus-4-8';
+  // 単価表（前方一致文字列が入っている行だけ保存）
+  store.prices=editPrices
+    .filter(r=>r[0]&&String(r[0]).trim())
+    .map(r=>[String(r[0]).trim(), Number(r[1])||0, Number(r[2])||0]);
   store.window=Number($('setWindow').value);
   store.maxTokens=Number($('setMaxTokens').value);
-  const cv=$('setCredit').value.trim();
-  store.credit = cv==='' ? null : Number(cv);
+  store.credits=store.credits||{};
+  document.querySelectorAll('#creditRows [data-cr]').forEach(el=>{
+    const v=el.value.trim();
+    if(v==='') delete store.credits[el.dataset.cr];
+    else store.credits[el.dataset.cr]=Number(v);
+  });
   store.fx = Number($('setFx').value)||150;
+  store.userName=$('setUserName').value.trim()||'みい';
+  store.aiName=$('setAiName').value.trim()||'ぴこ';
+  store.appName=$('setAppName').value.trim()||'ぴこチャット';
   store.system=$('setSystem').value;
   store.knowledge=$('setKnowledge').value;
   save(); renderHeader();
@@ -752,6 +1067,10 @@ function renderKnowledgeMeter(){
   if(!text.trim()){ el.textContent='現在: 空（追加料金なし）'; return; }
   const tok=estimateTokens(text);
   const p=priceOf(store.model);
+  if(!p){
+    el.textContent='現在: '+text.length.toLocaleString()+'文字 ≒ '+tok.toLocaleString()+'トークン（単価未設定のため金額は概算できません）';
+    return;
+  }
   const addYen=(tok/1e6*p.inP)*(store.fx||150);
   el.textContent='現在: '+text.length.toLocaleString()+'文字 ≒ '+tok.toLocaleString()+'トークン（1回あたり約'+(addYen<1?addYen.toFixed(2):addYen.toFixed(1))+'円の上乗せ）';
 }
@@ -771,7 +1090,7 @@ $('knowledgeFile').addEventListener('change',async e=>{
 
 /* ================= エクスポート / インポート ================= */
 $('btnExport').addEventListener('click',()=>{
-  const data={app:'pikoChat',version:1,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const data={app:'pikoChat',version:2,exported:new Date().toISOString(),threads:store.threads,system:store.system};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -781,7 +1100,7 @@ $('btnExport').addEventListener('click',()=>{
   toast('エクスポートしました');
 });
 $('btnExportClipboard').addEventListener('click',async()=>{
-  const data={app:'pikoChat',version:1,exported:new Date().toISOString(),threads:store.threads,system:store.system};
+  const data={app:'pikoChat',version:2,exported:new Date().toISOString(),threads:store.threads,system:store.system};
   const text=JSON.stringify(data,null,2);
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -815,6 +1134,26 @@ $('importFile').addEventListener('change',async e=>{
   try{
     const data=JSON.parse(await file.text());
     if(!Array.isArray(data.threads)) throw new Error('形式が違います');
+    /* データを正規化（文字列であるべき所を強制し、不正な要素は除外） */
+    const clean=data.threads
+      .filter(t=>t && typeof t==='object' && Array.isArray(t.messages))
+      .map(t=>({
+        id: typeof t.id==='string' ? t.id : uid(),
+        title: typeof t.title==='string' ? t.title : '',
+        created: Number(t.created)||Date.now(),
+        updated: Number(t.updated)||Date.now(),
+        model: typeof t.model==='string' ? t.model : undefined,
+        usage: (t.usage&&typeof t.usage==='object') ? {inTok:Number(t.usage.inTok)||0,outTok:Number(t.usage.outTok)||0,usd:Number(t.usage.usd)||0} : undefined,
+        messages: t.messages
+          .filter(m=>m && (m.role==='user'||m.role==='assistant'))
+          .map(m=>({
+            role: m.role,
+            content: typeof m.content==='string' ? m.content : String(m.content??''),
+            ts: Number(m.ts)||undefined,
+            usedModel: typeof m.usedModel==='string' ? m.usedModel : undefined
+          }))
+      }));
+    data.threads=clean;
     const mode=await confirmDlg('インポート方法を選んでね\n\nOK＝今のデータに追加（マージ）\nキャンセル＝選び直す','追加する');
     if(mode){
       const ids=new Set(store.threads.map(t=>t.id));
@@ -843,7 +1182,7 @@ $('btnWipe').addEventListener('click',async()=>{
 
 /* ================= 起動 ================= */
 renderHeader(); renderChat();
-if(!store.apiKey || !store.system || !store.system.trim()){ setTimeout(openSettings,300); }
+if(!keyOf(splitModel(store.model).pid) || !store.system || !store.system.trim()){ setTimeout(openSettings,300); }
 </script>
 </body>
 </html>
